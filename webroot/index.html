@@ -7,21 +7,31 @@
 
 <script>
 
-var x = 0;
-var y = 0; 
-var n = 0; 
+var haveScreenSize = false;
 var c = document.getElementById("myCanvas");
 var ctx = c.getContext("2d");
 var imgData = ctx.createImageData(800, 600);
-
+var swidth = 0; 
+var sheight = 0; 
 
 
 var ws = new WebSocket("ws://" +window.location.host + "/dpy");
 ws.binaryType = "arraybuffer";
 
-
 ws.onmessage = function(msgevent) {
+
     
+    if(!haveScreenSize) {
+        var msg = JSON.parse(msgevent.data);
+        c.style.width = msg.Width; 
+        c.style.height = msg.Height;
+        swidth = msg.Width; 
+        sheight = msg.Height;
+        haveScreenSize = true;
+        return
+    }
+
+
     var pixelArray = new Uint32Array(msgevent.data);
 
     var sx = pixelArray[0];
@@ -29,16 +39,16 @@ ws.onmessage = function(msgevent) {
     var w = pixelArray[2];
     var h = pixelArray[3];
 
-    for ( y = sy; y < (sy + h); y++ ) {
-        for( x = sx; x < (sx + w); x++ ) {
+    for ( var y = sy; y < (sy + h); y++ ) {
+        for( var x = sx; x < (sx + w); x++ ) {
            
             var o = (((w * y) + x) - ((w * sy) + sx));
             var px = pixelArray[o + 4];
             
-            imgData.data[((800 * y) + x) * 4] = (px & 0x00ff0000) >> 16;
-            imgData.data[((800 * y) + x) * 4 + 1] = (px & 0x0000ff00) >> 8;
-            imgData.data[((800 * y) + x) * 4 + 2] = (px & 0x000000ff)
-            imgData.data[((800 * y) + x) * 4 + 3] = 255; 
+            imgData.data[((swidth * y) + x) * 4] = (px & 0x00ff0000) >> 16;
+            imgData.data[((swidth * y) + x) * 4 + 1] = (px & 0x0000ff00) >> 8;
+            imgData.data[((swidth * y) + x) * 4 + 2] = (px & 0x000000ff)
+            imgData.data[((swidth * y) + x) * 4 + 3] = 255; 
         }
     }
 

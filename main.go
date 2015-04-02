@@ -11,9 +11,14 @@ import (
 	"golang.org/x/net/websocket"
 )
 
+type ScreenInfo struct {
+	Width  int
+	Height int
+}
+
 func main() {
 
-	http.Handle("/dpy", websocket.Handler(EchoServer))
+	http.Handle("/dpy", websocket.Handler(DpyServer))
 	fs := http.FileServer(http.Dir("webroot"))
 	http.Handle("/remotedpy/", http.StripPrefix("/remotedpy/", fs))
 
@@ -23,7 +28,7 @@ func main() {
 	}
 }
 
-func EchoServer(ws *websocket.Conn) {
+func DpyServer(ws *websocket.Conn) {
 
 	dpy, err := x11.OpenDisplay()
 	if err != nil {
@@ -31,6 +36,10 @@ func EchoServer(ws *websocket.Conn) {
 		os.Exit(-1)
 	}
 	defer dpy.Close()
+
+	w, h := dpy.GetScreenSize()
+	si := &ScreenInfo{Width: w, Height: h}
+	websocket.JSON.Send(ws, si)
 
 	dpy.StartStream()
 	defer dpy.StopStream()

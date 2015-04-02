@@ -9,6 +9,12 @@ void DestroyImage(XImage *img) {
 	XDestroyImage(img);
 }
 
+void GetScreenSize(Display *dpy, int *width, int *height)  {
+	int screen = DefaultScreen(dpy);
+    *width = DisplayWidth(dpy, screen);
+    *height = DisplayHeight(dpy, screen);
+}
+
 unsigned long GetPixel(XImage *img, int x, int y) {
 	return XGetPixel(img, x, y);
 }
@@ -161,6 +167,16 @@ func OpenDisplay() (*Display, error) {
 	d.C = make(chan Image, 2)
 
 	return d, nil
+}
+
+func (d *Display) GetScreenSize() (int, int) {
+
+	var w C.int
+	var h C.int
+
+	C.GetScreenSize(d.dpy, &w, &h)
+
+	return int(w), int(h)
 }
 
 func (d *Display) StartStream() {
