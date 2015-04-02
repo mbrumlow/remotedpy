@@ -8,9 +8,10 @@
 <script>
 
 var haveScreenSize = false;
+
+var imgData;
 var c = document.getElementById("myCanvas");
 var ctx = c.getContext("2d");
-var imgData = ctx.createImageData(800, 600);
 var swidth = 0; 
 var sheight = 0; 
 
@@ -28,6 +29,7 @@ ws.onmessage = function(msgevent) {
         swidth = msg.Width; 
         sheight = msg.Height;
         haveScreenSize = true;
+        imgData = ctx.createImageData(swidth, sheight);
         return
     }
 
