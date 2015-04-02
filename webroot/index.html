@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<canvas id="myCanvas" width="800" height="600" style="image-rendering: pixelated;">
+    Your browser does not support the HTML5 canvas tag.</canvas>
+
+<script>
+
+var x = 0;
+var y = 0; 
+var n = 0; 
+var c = document.getElementById("myCanvas");
+var ctx = c.getContext("2d");
+var imgData = ctx.createImageData(800, 600);
+
+
+
+var ws = new WebSocket("ws://" +window.location.host + "/dpy");
+ws.binaryType = "arraybuffer";
+
+
+ws.onmessage = function(msgevent) {
+    
+    var pixelArray = new Uint32Array(msgevent.data);
+
+    var sx = pixelArray[0];
+    var sy = pixelArray[1];
+    var w = pixelArray[2];
+    var h = pixelArray[3];
+
+    for ( y = sy; y < (sy + h); y++ ) {
+        for( x = sx; x < (sx + w); x++ ) {
+           
+            var o = (((w * y) + x) - ((w * sy) + sx));
+            var px = pixelArray[o + 4];
+            
+            imgData.data[((800 * y) + x) * 4] = (px & 0x00ff0000) >> 16;
+            imgData.data[((800 * y) + x) * 4 + 1] = (px & 0x0000ff00) >> 8;
+            imgData.data[((800 * y) + x) * 4 + 2] = (px & 0x000000ff)
+            imgData.data[((800 * y) + x) * 4 + 3] = 255; 
+        }
+    }
+
+    ctx.putImageData(imgData, 0, 0);
+    
+};
+
+</script>
+
+</body>
+</html>
+
