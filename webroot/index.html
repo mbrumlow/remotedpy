@@ -24,6 +24,8 @@ ws.onmessage = function(msgevent) {
     
     if(!haveScreenSize) {
         var msg = JSON.parse(msgevent.data);
+        c.width = msg.Width; 
+        c.height = msg.Height;
         c.style.width = msg.Width; 
         c.style.height = msg.Height;
         swidth = msg.Width; 
