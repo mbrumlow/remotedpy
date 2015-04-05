@@ -15,27 +15,26 @@ var ctx = c.getContext("2d");
 var swidth = 0; 
 var sheight = 0; 
 
-
 var ws = new WebSocket("ws://" +window.location.host + "/dpy");
 ws.binaryType = "arraybuffer";
 
 ws.onmessage = function(msgevent) {
-
     
     if(!haveScreenSize) {
         var msg = JSON.parse(msgevent.data);
-        var canvas = document.getElementsByTagName('canvas')[0];
-        canvas.width = msg.Width; 
-        canvas.height = msg.Height;
-        canvas.style.width = msg.Width + 'px'; 
-        canvas.style.height = msg.Height + 'px';
+        c.width = msg.Width; 
+        c.height = msg.Height;
+        c.style.width = msg.Width + 'px'; 
+        c.style.height = msg.Height + 'px';
         swidth = msg.Width; 
         sheight = msg.Height;
         haveScreenSize = true;
         imgData = ctx.createImageData(swidth, sheight);
+        
+        console.log("screen size: ", swidth, "x", sheight);
+
         return
     }
-
 
     var pixelArray = new Uint32Array(msgevent.data);
 
@@ -56,7 +55,7 @@ ws.onmessage = function(msgevent) {
             imgData.data[((swidth * y) + x) * 4 + 3] = 255; 
         }
     }
-
+    
     ctx.putImageData(imgData, 0, 0);
     
 };

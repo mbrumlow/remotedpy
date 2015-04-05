@@ -51,13 +51,7 @@ func DpyServer(ws *websocket.Conn) {
 		binary.Write(bb, binary.LittleEndian, uint32(img.Y))
 		binary.Write(bb, binary.LittleEndian, uint32(img.W))
 		binary.Write(bb, binary.LittleEndian, uint32(img.H))
-
-		for y := 0; y < img.H; y++ {
-			for x := 0; x < img.W; x++ {
-				p := img.GetPixel(x, y)
-				binary.Write(bb, binary.LittleEndian, p)
-			}
-		}
+		binary.Write(bb, binary.LittleEndian, img.S)
 
 		err = websocket.Message.Send(ws, bb.Bytes())
 		if err != nil {

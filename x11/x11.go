@@ -3,7 +3,10 @@ package x11
 /*
 #include <X11/Xlib.h>
 #include <X11/extensions/Xdamage.h>
-#cgo LDFLAGS: -lX11 -lXdamage
+#include <X11/extensions/Xcomposite.h>
+#cgo LDFLAGS: -lX11 -lXdamage -lXcomposite
+
+Pixmap windowPix;
 
 void DestroyImage(XImage *img) {
 	XDestroyImage(img);
@@ -27,7 +30,7 @@ static void register_damage(Display *dpy, Window win) {
     XWindowAttributes attrib;
     if (XGetWindowAttributes(dpy, win, &attrib) && !attrib.override_redirect) {
         XDamageCreate(dpy, win, XDamageReportRawRectangles);
-    }
+	}
 }
 
 void RegisterDamanges(Display *dpy) {
@@ -42,13 +45,14 @@ void RegisterDamanges(Display *dpy) {
 
     XSetErrorHandler(xerror_handler);
 
-    register_damage(dpy, root);
-    for (i = 0; i < nchildren; i++) {
-        register_damage(dpy, children[i]);
-    }
+ 	XCompositeRedirectSubwindows( dpy, RootWindow( dpy, i ), CompositeRedirectAutomatic );
+
+	register_damage(dpy, root);
+	for (i = 0; i < nchildren; i++) {
+		register_damage(dpy, children[i]);
+	}
 
     XFree(children);
-
 }
 
 XImage *GetDamage(Display *dpy, int damageEvent, int *x, int *y, int *h, int *w)  {
@@ -102,8 +106,17 @@ XImage *GetDamage(Display *dpy, int damageEvent, int *x, int *y, int *h, int *w)
 					*w = rx - *x;
 				}
 
+				if(*x < 0) {
+					*x = 0;
+				}
+
+				if(*y < 0) {
+					*y = 0;
+				}
+
 				fr = 1;
         		damage = 1;
+				XDamageSubtract( dpy, dev->damage, None, None );
 			} while (XCheckTypedEvent(dpy, damageEvent + XDamageNotify, &ev));
 
 			if(damage) {
@@ -116,9 +129,7 @@ XImage *GetDamage(Display *dpy, int damageEvent, int *x, int *y, int *h, int *w)
                 	*x, *y, *w, *h,
                 	AllPlanes, ZPixmap);
 			}
-
     	}
-
 	}
 
 	return NULL;
@@ -129,7 +140,9 @@ import "C"
 
 import (
 	"errors"
+	"reflect"
 	"time"
+	"unsafe"
 )
 
 type Display struct {
@@ -140,6 +153,7 @@ type Display struct {
 
 type Image struct {
 	img *C.struct__XImage
+	S   []C.uint
 	X   int
 	Y   int
 	W   int
@@ -200,7 +214,16 @@ func (d *Display) getChanges() {
 	for _ = range ticker.C {
 		img := C.GetDamage(d.dpy, d.damageEvent, &x, &y, &h, &w)
 		if img != nil {
-			i := Image{img: img, X: int(x), Y: int(y), H: int(h), W: int(w)}
+
+			length := (int(w) * int(h))
+			hdr := reflect.SliceHeader{
+				Data: uintptr(unsafe.Pointer(img.data)),
+				Len:  length,
+				Cap:  length,
+			}
+			goSlice := *(*[]C.uint)(unsafe.Pointer(&hdr))
+
+			i := Image{img: img, X: int(x), Y: int(y), H: int(h), W: int(w), S: goSlice}
 			d.C <- i
 		}
 	}
