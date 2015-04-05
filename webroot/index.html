@@ -18,23 +18,26 @@ var sheight = 0;
 var ws = new WebSocket("ws://" +window.location.host + "/dpy");
 ws.binaryType = "arraybuffer";
 
-ws.onmessage = function(msgevent) {
-    
-    if(!haveScreenSize) {
-        var msg = JSON.parse(msgevent.data);
-        c.width = msg.Width; 
-        c.height = msg.Height;
-        c.style.width = msg.Width + 'px'; 
-        c.style.height = msg.Height + 'px';
-        swidth = msg.Width; 
-        sheight = msg.Height;
-        haveScreenSize = true;
-        imgData = ctx.createImageData(swidth, sheight);
-        
-        console.log("screen size: ", swidth, "x", sheight);
 
-        return
-    }
+var screenSizeUpdate = function(msgevent) { 
+    
+    var msg = JSON.parse(msgevent.data);
+    c.width = msg.Width; 
+    c.height = msg.Height;
+    c.style.width = msg.Width + 'px'; 
+    c.style.height = msg.Height + 'px';
+    swidth = msg.Width; 
+    sheight = msg.Height;
+    haveScreenSize = true;
+    imgData = ctx.createImageData(swidth, sheight);
+    
+    console.log("screen size: ", swidth, "x", sheight);
+    
+    ws.onmessage = pixelUpdate;
+    
+};
+
+var pixelUpdate = function(msgevent) {
 
     var pixelArray = new Uint32Array(msgevent.data);
 
@@ -42,7 +45,7 @@ ws.onmessage = function(msgevent) {
     var sy = pixelArray[1];
     var w = pixelArray[2];
     var h = pixelArray[3];
-
+    
     for ( var y = sy; y < (sy + h); y++ ) {
         for( var x = sx; x < (sx + w); x++ ) {
            
@@ -59,6 +62,9 @@ ws.onmessage = function(msgevent) {
     ctx.putImageData(imgData, 0, 0);
     
 };
+
+ws.onmessage = screenSizeUpdate;
+
 
 </script>
 

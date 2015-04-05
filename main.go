@@ -6,10 +6,15 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sync"
+	"time"
 
 	"github.com/mbrumlow/remotedpy/x11"
 	"golang.org/x/net/websocket"
 )
+
+var count = uint64(0)
+var mu = sync.Mutex{}
 
 type ScreenInfo struct {
 	Width  int
@@ -18,6 +23,8 @@ type ScreenInfo struct {
 
 func main() {
 
+	go timeTick()
+
 	http.Handle("/dpy", websocket.Handler(DpyServer))
 	fs := http.FileServer(http.Dir("webroot"))
 	http.Handle("/remotedpy/", http.StripPrefix("/remotedpy/", fs))
@@ -25,6 +32,18 @@ func main() {
 	err := http.ListenAndServe(":8888", nil)
 	if err != nil {
 		panic("ListenAndServe: " + err.Error())
+	}
+}
+
+func timeTick() {
+
+	c := time.Tick(1 * time.Second)
+	for _ = range c {
+		mu.Lock()
+		n := count
+		count = 0
+		mu.Unlock()
+		fmt.Printf("FPS: %v\n", n)
 	}
 }
 
@@ -60,5 +79,8 @@ func DpyServer(ws *websocket.Conn) {
 		}
 
 		img.DistoryImage()
+		mu.Lock()
+		count++
+		mu.Unlock()
 	}
 }

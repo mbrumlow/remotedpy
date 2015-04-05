@@ -80,6 +80,9 @@ XImage *GetDamage(Display *dpy, int damageEvent, int *x, int *y, int *h, int *w)
 			do {
 				XDamageNotifyEvent  *dev = (XDamageNotifyEvent *) &ev;
 
+				// TODO: split large non-overlapping regions up instead of
+				// of making one large region.
+
 				if(fr == 0) {
 					*x = dev->area.x;
 					*w = dev->area.width;
@@ -123,6 +126,11 @@ XImage *GetDamage(Display *dpy, int damageEvent, int *x, int *y, int *h, int *w)
 
 				*h = ry - *y;
 				*w = rx - *x;
+
+//				*x = 0;
+//				*y = 0;
+//				*w = 800;
+//				*h = 600;
 
 				return XGetImage(dpy,
 					DefaultRootWindow(dpy),
