@@ -6,6 +6,6 @@ http://youtu.be/MnatFWQxT1k
 
 # Required 
 
->libx11-dev
->libxdamage-dev
->libxcomposite-dev
+ libx11-dev
+ libxdamage-dev
+ libxcomposite-dev
