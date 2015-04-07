@@ -4,7 +4,9 @@ package x11
 #include <X11/Xlib.h>
 #include <X11/extensions/Xdamage.h>
 #include <X11/extensions/Xcomposite.h>
-#cgo LDFLAGS: -lX11 -lXdamage -lXcomposite
+#include <X11/keysym.h>
+#include <X11/extensions/XTest.h>
+#cgo LDFLAGS: -lX11 -lXdamage -lXcomposite -lXtst
 
 Pixmap windowPix;
 
@@ -53,6 +55,18 @@ void RegisterDamanges(Display *dpy) {
 	}
 
     XFree(children);
+}
+
+void SendKey(Display *dpy, unsigned int key, int down) {
+
+	unsigned int kc = XKeysymToKeycode(dpy, key);
+
+	if(down == 0) {
+		XTestFakeKeyEvent(dpy, kc, False, 0);
+	} else{
+		XTestFakeKeyEvent(dpy, kc, True, 0);
+	}
+	XFlush(dpy);
 }
 
 XImage *GetDamage(Display *dpy, int damageEvent, int *x, int *y, int *h, int *w)  {
@@ -155,6 +169,7 @@ import (
 
 type Display struct {
 	dpy         *C.struct__XDisplay
+	dpy2        *C.struct__XDisplay
 	damageEvent C.int
 	C           chan Image
 }
@@ -176,6 +191,11 @@ func OpenDisplay() (*Display, error) {
 		return nil, errors.New("Failed to open display.")
 	}
 
+	dpy2 := C.XOpenDisplay(display)
+	if dpy2 == nil {
+		return nil, errors.New("Failed to open display.")
+	}
+
 	var err C.int
 	var damageEvent C.int
 	if C.XDamageQueryExtension(dpy, &damageEvent, &err) == C.int(0) {
@@ -185,7 +205,7 @@ func OpenDisplay() (*Display, error) {
 
 	C.RegisterDamanges(dpy)
 
-	d := &Display{dpy: dpy, damageEvent: damageEvent}
+	d := &Display{dpy: dpy, dpy2: dpy2, damageEvent: damageEvent}
 	d.C = make(chan Image, 2)
 
 	return d, nil
@@ -203,6 +223,14 @@ func (d *Display) GetScreenSize() (int, int) {
 
 func (d *Display) StartStream() {
 	go d.getChanges()
+}
+
+func (d *Display) SendKey(key uint32, down bool) {
+	downInt := 0
+	if down {
+		downInt = 1
+	}
+	C.SendKey(d.dpy2, C.uint(key), C.int(downInt))
 }
 
 func (d *Display) StopStream() {

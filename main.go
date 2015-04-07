@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -15,6 +16,20 @@ import (
 
 var count = uint64(0)
 var mu = sync.Mutex{}
+
+const (
+	KeyEventType = 1 << iota
+)
+
+type Event struct {
+	Type  int
+	Event string
+}
+
+type KeyEvent struct {
+	KeyCode uint32
+	Down    bool
+}
 
 type ScreenInfo struct {
 	Width  int
@@ -36,7 +51,6 @@ func main() {
 }
 
 func timeTick() {
-
 	c := time.Tick(1 * time.Second)
 	for _ = range c {
 		mu.Lock()
@@ -44,6 +58,28 @@ func timeTick() {
 		count = 0
 		mu.Unlock()
 		fmt.Printf("FPS: %v\n", n)
+	}
+}
+
+func handleEvents(ws *websocket.Conn, dpy *x11.Display) {
+	for {
+		var ev Event
+		err := websocket.JSON.Receive(ws, &ev)
+		if err != nil {
+			break
+		}
+
+		switch ev.Type {
+		case KeyEventType:
+			var e KeyEvent
+			err := json.Unmarshal([]byte(ev.Event), &e)
+			if err != nil {
+				fmt.Println("Error on event: " + err.Error())
+				break
+			}
+			dpy.SendKey(e.KeyCode, e.Down)
+			break
+		}
 	}
 }
 
@@ -55,6 +91,8 @@ func DpyServer(ws *websocket.Conn) {
 		os.Exit(-1)
 	}
 	defer dpy.Close()
+
+	go handleEvents(ws, dpy)
 
 	w, h := dpy.GetScreenSize()
 	si := &ScreenInfo{Width: w, Height: h}

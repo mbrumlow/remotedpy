@@ -65,9 +65,93 @@ var pixelUpdate = function(msgevent) {
 
 ws.onmessage = screenSizeUpdate;
 
+window.addEventListener( "keydown", doKeyDown, true);
+window.addEventListener( "keyup", doKeyUp, true);
+
+function sendKeys(kc, down) {
+    var keyEvent = new Object(); 
+    keyEvent.KeyCode = kc;
+    keyEvent.Down = down; 
+
+    var ev = new Object(); 
+    ev.Type = 1;
+    ev.Event = JSON.stringify(keyEvent); 
+
+    ws.send(JSON.stringify(ev));
+}
+
+function doKeyDown(e) {
+    var kc =  keyCodeToLinuxSym(e.keyCode);
+    sendKeys(kc, true); 
+    e.preventDefault();
+}
+
+function doKeyUp(e) {
+    var kc =  keyCodeToLinuxSym(e.keyCode);
+    sendKeys(kc, false); 
+    e.preventDefault();
+}
+
+function keyCodeToLinuxSym(kc) {
+    
+    // 0 - 9
+    if( kc >= 48 && kc <= 57 ) {
+        return kc;    
+    }
+
+    // A - Z
+    if( kc >= 65 && kc <= 90 ) {
+        return kc + 32;
+    }
+
+    switch(kc) {
+        case 8:  return 0xff08; // Backspace
+        case 13: return 0xff0d; // Enter
+        case 16: return 0xffe1; // Shift (Left and Right) FIXME: Right
+        case 17: return 0xffe3; // Control (Left and Right) FIXME: Right
+        case 18: return 0xffe9; // Alt (Left and Right) FIXME: Right
+        case 19:  return 0xff13; // Pause
+        case 27:  return 0xff1b; // Esc
+        case 32:  return 0x20;   // Space
+        case 33:  return 0xff55; // Page Up
+        case 34:  return 0xff56; // Page Down
+        case 35:  return 0xff57; // End
+        case 36:  return 0xff50; // Home
+        case 37:  return 0xff51; // Left
+        case 38:  return 0xff52; // Top
+        case 39:  return 0xff53; // Right
+        case 40:  return 0xff54; // Bottom
+        case 42:  return 0xff61; // Print screen
+        case 45:  return 0xff63; // Insert
+        case 46:  return 0xffff; // Delete
+        case 91:  return 0xffeb; // Super
+        case 106: return 0xffaa; // Multiply on Numpad
+        case 107: return 0xffab; // Plus on Numpad
+        case 109: return 0xffad; // Minus on Numpad
+        case 110: return 0xffae; // Dot on Numpad
+        case 111: return 0xffaf; // Divide on Numpad
+        case 144: return 0xff7f; // Num Lock
+        case 145: return 0xff14; // Scroll Lock
+        case 166: return 0x1008ff26; // Back
+        case 167: return 0x1008ff27; // Forward
+        case 168: return 0x1008ff73; // Refresh
+        case 186: return 0x3b; // ;
+        case 187: return 0x3d; // =
+        case 188: return 0x2c; // ,
+        case 189: return 0x2d; // -
+        case 190: return 0x2e; // .
+        case 191: return 0x2f; // /
+        case 192: return 0x60; // `
+        case 219: return 0x5b; // [
+        case 220: return 0x5c; // '\'
+        case 221: return 0x5d; // ]
+        case 222: return 0x27; // '
+    }
+
+    return 0x00;
+}
 
 </script>
 
 </body>
 </html>
-
