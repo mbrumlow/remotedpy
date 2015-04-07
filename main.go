@@ -19,6 +19,8 @@ var mu = sync.Mutex{}
 
 const (
 	KeyEventType = 1 << iota
+	MoseMoveType
+	MouseClickType
 )
 
 type Event struct {
@@ -29,6 +31,18 @@ type Event struct {
 type KeyEvent struct {
 	KeyCode uint32
 	Down    bool
+}
+
+type MoseMoveEvent struct {
+	X uint32
+	Y uint32
+}
+
+type MouseClickEvent struct {
+	Button int
+	X      uint32
+	Y      uint32
+	Down   bool
 }
 
 type ScreenInfo struct {
@@ -79,6 +93,26 @@ func handleEvents(ws *websocket.Conn, dpy *x11.Display) {
 			}
 			dpy.SendKey(e.KeyCode, e.Down)
 			break
+		case MoseMoveType:
+			var e MoseMoveEvent
+			err := json.Unmarshal([]byte(ev.Event), &e)
+			if err != nil {
+				fmt.Println("Error on mouse move event: " + err.Error())
+				break
+			}
+			dpy.SendMouseMove(e.X, e.Y)
+			break
+		case MouseClickType:
+			var e MouseClickEvent
+			err := json.Unmarshal([]byte(ev.Event), &e)
+			if err != nil {
+				fmt.Println("Error on mouse click event: " + err.Error())
+				break
+			}
+			dpy.SendMouseClick(e.Button, e.X, e.Y, e.Down)
+			break
+		default:
+			fmt.Printf("Unknown event: %v\n", ev)
 		}
 	}
 }

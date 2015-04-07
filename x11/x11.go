@@ -59,13 +59,28 @@ void RegisterDamanges(Display *dpy) {
 
 void SendKey(Display *dpy, unsigned int key, int down) {
 
+	Bool d = False;
 	unsigned int kc = XKeysymToKeycode(dpy, key);
 
-	if(down == 0) {
-		XTestFakeKeyEvent(dpy, kc, False, 0);
-	} else{
-		XTestFakeKeyEvent(dpy, kc, True, 0);
+	if(down == 1) {
+		d = True;
 	}
+	XTestFakeKeyEvent(dpy, kc, d, 0);
+	XFlush(dpy);
+}
+
+void SendMouseClick(Display *dpy, int button, unsigned x, unsigned y, int down) {
+	Bool d = False;
+	if( down == 1) {
+		d = True;
+	}
+	XTestFakeMotionEvent(dpy, 0, x, y, 0);
+	XTestFakeButtonEvent(dpy, button, d, 0);
+	XFlush(dpy);
+}
+
+void SendMouseMove(Display *dpy, unsigned x, unsigned y) {
+	XTestFakeMotionEvent(dpy, 0, x, y, 0);
 	XFlush(dpy);
 }
 
@@ -140,11 +155,6 @@ XImage *GetDamage(Display *dpy, int damageEvent, int *x, int *y, int *h, int *w)
 
 				*h = ry - *y;
 				*w = rx - *x;
-
-//				*x = 0;
-//				*y = 0;
-//				*w = 800;
-//				*h = 600;
 
 				return XGetImage(dpy,
 					DefaultRootWindow(dpy),
@@ -231,6 +241,18 @@ func (d *Display) SendKey(key uint32, down bool) {
 		downInt = 1
 	}
 	C.SendKey(d.dpy2, C.uint(key), C.int(downInt))
+}
+
+func (d *Display) SendMouseMove(x, y uint32) {
+	C.SendMouseMove(d.dpy2, C.uint(x), C.uint(y))
+}
+
+func (d *Display) SendMouseClick(button int, x, y uint32, down bool) {
+	downInt := 0
+	if down {
+		downInt = 1
+	}
+	C.SendMouseClick(d.dpy2, C.int(button), C.uint(x), C.uint(y), C.int(downInt))
 }
 
 func (d *Display) StopStream() {

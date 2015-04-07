@@ -67,6 +67,13 @@ ws.onmessage = screenSizeUpdate;
 
 window.addEventListener( "keydown", doKeyDown, true);
 window.addEventListener( "keyup", doKeyUp, true);
+c.addEventListener('mousemove', doMouseMove, true);
+c.addEventListener("mousedown", doMouseDown, true);
+c.addEventListener("mouseup", doMouseUp, true);
+
+c.oncontextmenu = function (e) {
+    e.preventDefault();
+};
 
 function sendKeys(kc, down) {
     var keyEvent = new Object(); 
@@ -90,6 +97,61 @@ function doKeyUp(e) {
     var kc =  keyCodeToLinuxSym(e.keyCode);
     sendKeys(kc, false); 
     e.preventDefault();
+}
+
+function sendMouseClick(button, x, y, down) {
+    var mouseClickEvent = new Object();
+    mouseClickEvent.Button = button;
+    mouseClickEvent.X = x;
+    mouseClickEvent.Y = y; 
+    mouseClickEvent.Down = down;
+
+    var ev = new Object(); 
+    ev.Type = 4;
+    ev.Event = JSON.stringify(mouseClickEvent); 
+
+    ws.send(JSON.stringify(ev));
+}
+
+function doMouseDown(e) {
+    var mousePos = getMousePos(e);
+    var button = getMouseButtonNumber(e); 
+    sendMouseClick(button, mousePos.x, mousePos.y, true)
+}
+
+function doMouseUp(e) {
+    var mousePos = getMousePos(e);
+    var button = getMouseButtonNumber(e); 
+    sendMouseClick(button, mousePos.x, mousePos.y, false)
+}
+
+function doMouseMove(e) {
+    var mousePos = getMousePos(e);
+    var mouseMoveEvent = new Object(); 
+    mouseMoveEvent.X = mousePos.x;
+    mouseMoveEvent.Y = mousePos.y; 
+
+    var ev = new Object(); 
+    ev.Type = 2;
+    ev.Event = JSON.stringify(mouseMoveEvent); 
+
+    ws.send(JSON.stringify(ev));
+}
+
+function getMouseButtonNumber(e) {
+    console.log("BUTTON: ", e.button);
+    switch(e.button) {
+        case 0: return 1; 
+        case 2: return 3; 
+    }
+}
+
+function getMousePos(e) {
+    var rect = c.getBoundingClientRect();
+    return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+    };
 }
 
 function keyCodeToLinuxSym(kc) {
