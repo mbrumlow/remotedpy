@@ -2,76 +2,87 @@
 <html>
 <body>
 
-<canvas id="myCanvas" width="800" height="600" style="image-rendering: pixelated;">
+<canvas id="screenCanvas" width="0" height="0" style="image-rendering: pixelated;">
     Your browser does not support the HTML5 canvas tag.</canvas>
 
 <script>
 
-var haveScreenSize = false;
-
 var imgData;
-var c = document.getElementById("myCanvas");
-var ctx = c.getContext("2d");
-var swidth = 0; 
-var sheight = 0; 
+var canvas = document.getElementById("screenCanvas");
+var ctx = canvas.getContext("2d");
+var screenWidth = 0; 
+var screenHeight = 0; 
 
 var ws = new WebSocket("ws://" +window.location.host + "/dpy");
 ws.binaryType = "arraybuffer";
 
+var msgHandler = function(msgevent) {
+    
+    var buf = new Uint32Array(msgevent.data);
+    var len = 0;
+    var key = 0; 
+    
+    for(var p = 0; p < buf.length; p = p + len + 1) { 
+        
+        len = (buf[p] & 0x00ffffff);
+        key = (buf[p] & 0xff000000) >> 24; 
+    
+        switch(key) {
+            case 1: screenUpdate(buf.subarray(p+1, p+1+len)); break;
+            case 2: pixelUpdate(buf.subarray(p+1, p+1+len)); break;
+        }
+        
+        p = p+len;
+    }
 
-var screenSizeUpdate = function(msgevent) { 
-    
-    var msg = JSON.parse(msgevent.data);
-    c.width = msg.Width; 
-    c.height = msg.Height;
-    c.style.width = msg.Width + 'px'; 
-    c.style.height = msg.Height + 'px';
-    swidth = msg.Width; 
-    sheight = msg.Height;
-    haveScreenSize = true;
-    imgData = ctx.createImageData(swidth, sheight);
-    
-    console.log("screen size: ", swidth, "x", sheight);
-    
-    ws.onmessage = pixelUpdate;
-    
 };
 
-var pixelUpdate = function(msgevent) {
+function screenUpdate(buf) {
+    var w = buf[0] & 0x0000ffff; 
+    var h = buf[0] >> 16;
 
-    var pixelArray = new Uint32Array(msgevent.data);
-
-    var sx = pixelArray[0];
-    var sy = pixelArray[1];
-    var w = pixelArray[2];
-    var h = pixelArray[3];
+    canvas.width = w; 
+    canvas.height = h; 
+    canvas.style.width = w + 'px'; 
+    canvas.style.height = h + 'px';
+    screenWidth = w; 
+    screenHeight = h; 
     
+    imgData = ctx.createImageData(w, h);
+}
+
+function pixelUpdate(pixelArray) {
+
+    var sx = pixelArray[0] & 0x0000ffff;
+    var sy = pixelArray[0] >> 16;
+    var w = pixelArray[1] & 0x0000ffff;
+    var h = pixelArray[1] >> 16; 
+  
     for ( var y = sy; y < (sy + h); y++ ) {
         for( var x = sx; x < (sx + w); x++ ) {
            
             var o = (((w * y) + x) - ((w * sy) + sx));
-            var px = pixelArray[o + 4];
+            var px = pixelArray[o + 2];
             
-            imgData.data[((swidth * y) + x) * 4] = (px & 0x00ff0000) >> 16;
-            imgData.data[((swidth * y) + x) * 4 + 1] = (px & 0x0000ff00) >> 8;
-            imgData.data[((swidth * y) + x) * 4 + 2] = (px & 0x000000ff)
-            imgData.data[((swidth * y) + x) * 4 + 3] = 255; 
+            imgData.data[((screenWidth * y) + x) * 4] = (px & 0x00ff0000) >> 16;
+            imgData.data[((screenWidth * y) + x) * 4 + 1] = (px & 0x0000ff00) >> 8;
+            imgData.data[((screenWidth * y) + x) * 4 + 2] = (px & 0x000000ff)
+            imgData.data[((screenWidth * y) + x) * 4 + 3] = 255; 
         }
     }
-    
+   
     ctx.putImageData(imgData, 0, 0);
-    
-};
+}
 
-ws.onmessage = screenSizeUpdate;
 
+ws.onmessage = msgHandler;
 window.addEventListener( "keydown", doKeyDown, true);
 window.addEventListener( "keyup", doKeyUp, true);
-c.addEventListener('mousemove', doMouseMove, true);
-c.addEventListener("mousedown", doMouseDown, true);
-c.addEventListener("mouseup", doMouseUp, true);
+canvas.addEventListener('mousemove', doMouseMove, true);
+canvas.addEventListener("mousedown", doMouseDown, true);
+canvas.addEventListener("mouseup", doMouseUp, true);
 
-c.oncontextmenu = function (e) {
+canvas.oncontextmenu = function (e) {
     e.preventDefault();
 };
 
@@ -146,7 +157,7 @@ function getMouseButtonNumber(e) {
 }
 
 function getMousePos(e) {
-    var rect = c.getBoundingClientRect();
+    var rect = canvas.getBoundingClientRect();
     return {
         x: e.clientX - rect.left,
         y: e.clientY - rect.top

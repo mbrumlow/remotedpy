@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bytes"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -128,31 +126,20 @@ func DpyServer(ws *websocket.Conn) {
 
 	go handleEvents(ws, dpy)
 
-	w, h := dpy.GetScreenSize()
-	si := &ScreenInfo{Width: w, Height: h}
-	websocket.JSON.Send(ws, si)
-
 	dpy.StartStream()
 	defer dpy.StopStream()
-	for img := range dpy.C {
 
-		bb := new(bytes.Buffer)
+	for s := range dpy.S {
 
-		binary.Write(bb, binary.LittleEndian, uint32(img.X))
-		binary.Write(bb, binary.LittleEndian, uint32(img.Y))
-		binary.Write(bb, binary.LittleEndian, uint32(img.W))
-		binary.Write(bb, binary.LittleEndian, uint32(img.H))
-		binary.Write(bb, binary.LittleEndian, img.S)
-
-		err = websocket.Message.Send(ws, bb.Bytes())
+		err = websocket.Message.Send(ws, s.Bytes())
 		if err != nil {
 			fmt.Println("ENDING: " + err.Error())
 			return
 		}
 
-		img.DistoryImage()
 		mu.Lock()
 		count++
 		mu.Unlock()
 	}
+
 }
