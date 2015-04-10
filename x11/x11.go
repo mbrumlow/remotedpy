@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"time"
 )
 
 type Display struct {
@@ -100,17 +101,19 @@ func (d *Display) getStreamBuffer() {
 
 	d.S <- d.getInitalStreamBuffer()
 
-	for {
+	ticker := time.NewTicker(time.Millisecond * 10)
+	defer ticker.Stop()
+
+	for _ = range ticker.C {
+
 		var xe C.XXEvent
 		ret := C.GetDamage(d.dpy, d.damageEvent, &xe)
 		if ret == C.int(0) {
 			continue
 		}
 
-		switch int(xe.e) {
-		case 1:
-			d.S <- DamageStream(&xe)
-		}
+		d.S <- DamageStream(&xe)
+
 	}
 }
 

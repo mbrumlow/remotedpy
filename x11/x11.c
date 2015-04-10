@@ -35,7 +35,7 @@ void RegisterDamanges(Display *dpy) {
 
     XSetErrorHandler(xerror_handler);
 
- 	XCompositeRedirectSubwindows( dpy, RootWindow( dpy, 0 ), CompositeRedirectAutomatic );
+// 	XCompositeRedirectSubwindows( dpy, RootWindow( dpy, 0 ), CompositeRedirectAutomatic );
 
 	register_damage(dpy, root);
 	for (i = 0; i < nchildren; i++) {
@@ -94,7 +94,6 @@ int GetDamage(Display *dpy, int damageEvent, XXEvent *xxev)  {
 			int rx = 0;
 			int ry = 0;
 			int fr = 0;
-			int damage = 0;
             int x, y, w, h;
 
 			do { // Gobble up the rest of the damage events.
@@ -135,7 +134,6 @@ int GetDamage(Display *dpy, int damageEvent, XXEvent *xxev)  {
 				if(y < 0) y = 0;
 
 				fr = 1;
-        		damage = 1;
 				XDamageSubtract( dpy, dev->damage, None, None );
             } while (XCheckTypedEvent(dpy, damageEvent + XDamageNotify, &ev));
 
