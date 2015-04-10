@@ -7,9 +7,13 @@
 
 <script>
 
+
+
+var windows = new Map();
+
 var haveScreenSize = false;
 
-var imgData;
+//var imgData;
 var c = document.getElementById("myCanvas");
 var ctx = c.getContext("2d");
 var swidth = 0; 
@@ -29,13 +33,128 @@ var screenSizeUpdate = function(msgevent) {
     swidth = msg.Width; 
     sheight = msg.Height;
     haveScreenSize = true;
-    imgData = ctx.createImageData(swidth, sheight);
+    //imgData = ctx.createImageData(swidth, sheight);
+  //  imgData = ctx.createImageData(565, 396);
     
     console.log("screen size: ", swidth, "x", sheight);
     
-    ws.onmessage = pixelUpdate;
+    //ws.onmessage = pixelUpdate;
+    ws.onmessage = msgHandler;
     
 };
+
+var msgHandler = function(msgevent) {
+
+    var buf = new Uint32Array(msgevent.data);
+
+    var len = 0;
+    var key = 0; 
+
+    for(var p = 0; p < buf.length; p = p + len + 1) { 
+        
+        len = (buf[p] & 0x00ffffff);
+        key = (buf[p] & 0xff000000) >> 24; 
+    
+        switch(key) {
+            case 1: screenUpdate(buf.subarray(p+1, p+1+len)); break;
+            case 2: newWindow(buf.subarray(p+1, p+1+len)); break;
+            case 3: windowUpdate(buf.subarray(p+1, p+1+len)); break;
+            case 4: configureWindow(buf.subarray(p+1, p+1+len)); break;
+        }
+    }
+
+};
+
+function screenUpdate(buf) {
+    var w = buf[0] & 0x0000ffff; 
+    var h = buf[0] >> 16;
+
+    // TODO update all of the canvases width and height. 
+}
+
+function configureWindow(windowInfo) {
+    
+    var i = windowInfo[0];
+    var x = windowInfo[1] & 0x0000ffff;
+    var y = windowInfo[1] >> 16;
+    var w = windowInfo[2] & 0x0000ffff;
+    var h = windowInfo[2] >> 16; 
+   
+    if(!windows.has(i)) {
+        return;
+    }
+    
+    var win = windows.get(i);
+    var imgData = win.img; 
+    
+    ctx.clearRect ( win.x , win.y , win.w, win.h);
+   
+    win.x = x; 
+    win.y = y; 
+    win.w = w; 
+    win.h = h; 
+    
+    var fieldNameElement = document.getElementById('moveinfo');
+    fieldNameElement.firstChild.nodeValue = x + "," + y;
+    
+    ctx.putImageData(imgData, win.x, win.y);
+
+}
+
+function newWindow(windowInfo) {
+   
+    var i = windowInfo[0];
+    var x = windowInfo[1] & 0x0000ffff;
+    var y = windowInfo[1] >> 16;
+    var w = windowInfo[2] & 0x0000ffff;
+    var h = windowInfo[2] >> 16; 
+
+    var win = new Object();
+    win.id = i; 
+    win.x = x; 
+    win.y = y; 
+    win.w = w; 
+    win.h = h; 
+    win.img = ctx.createImageData(win.w, win.h);
+   
+
+    windows.set(i, win); 
+}
+
+function windowUpdate(pixelArray) {
+  
+    var imgID = pixelArray[0];
+    var sx = pixelArray[1] & 0x0000ffff;
+    var sy = pixelArray[1] >> 16;
+    var w = pixelArray[2] & 0x0000ffff;
+    var h = pixelArray[2] >> 16; 
+   
+    if(!windows.has(imgID)) {
+        console.log("Update to unknown window: ", imgID); 
+        return;
+    }
+  
+    var win = windows.get(imgID);
+    var imgData = win.img; 
+
+    for ( var y = sy; y < (sy + h); y++ ) {
+        for( var x = sx; x < (sx + w); x++ ) {
+           
+            var o = (((w * y) + x) - ((w * sy) + sx));
+            var px = pixelArray[o + 3];
+            
+            imgData.data[((win.w * y) + x) * 4] = (px & 0x00ff0000) >> 16;
+            imgData.data[((win.w * y) + x) * 4 + 1] = (px & 0x0000ff00) >> 8;
+            imgData.data[((win.w * y) + x) * 4 + 2] = (px & 0x000000ff)
+            imgData.data[((win.w * y) + x) * 4 + 3] = 255; 
+        }
+    }
+   
+    ctx.clearRect ( 0 , 0 , ctx.width, ctx.height );
+    ctx.putImageData(imgData, win.x, win.y);
+}
+
+
 
 var pixelUpdate = function(msgevent) {
 
@@ -45,17 +164,19 @@ var pixelUpdate = function(msgevent) {
     var sy = pixelArray[1];
     var w = pixelArray[2];
     var h = pixelArray[3];
-    
+
+    console.log("IMG: ", sx, "x", sy, " - w:", w, " h: ", h)
+
     for ( var y = sy; y < (sy + h); y++ ) {
         for( var x = sx; x < (sx + w); x++ ) {
            
             var o = (((w * y) + x) - ((w * sy) + sx));
             var px = pixelArray[o + 4];
             
-            imgData.data[((swidth * y) + x) * 4] = (px & 0x00ff0000) >> 16;
-            imgData.data[((swidth * y) + x) * 4 + 1] = (px & 0x0000ff00) >> 8;
-            imgData.data[((swidth * y) + x) * 4 + 2] = (px & 0x000000ff)
-            imgData.data[((swidth * y) + x) * 4 + 3] = 255; 
+            imgData.data[((565 * y) + x) * 4] = (px & 0x00ff0000) >> 16;
+            imgData.data[((565 * y) + x) * 4 + 1] = (px & 0x0000ff00) >> 8;
+            imgData.data[((565 * y) + x) * 4 + 2] = (px & 0x000000ff)
+            imgData.data[((565 * y) + x) * 4 + 3] = 255; 
         }
     }
     
@@ -63,6 +184,7 @@ var pixelUpdate = function(msgevent) {
     
 };
 
+//ws.onmessage = screenSizeUpdate;
 ws.onmessage = screenSizeUpdate;
 
 window.addEventListener( "keydown", doKeyDown, true);
@@ -166,26 +288,27 @@ function keyCodeToLinuxSym(kc) {
     }
 
     switch(kc) {
-        case 8:  return 0xff08; // Backspace
+        case 8: return 0xff08; // Backspace
+        case 9: return 0xff09;  // Tab
         case 13: return 0xff0d; // Enter
         case 16: return 0xffe1; // Shift (Left and Right) FIXME: Right
         case 17: return 0xffe3; // Control (Left and Right) FIXME: Right
         case 18: return 0xffe9; // Alt (Left and Right) FIXME: Right
-        case 19:  return 0xff13; // Pause
-        case 27:  return 0xff1b; // Esc
-        case 32:  return 0x20;   // Space
-        case 33:  return 0xff55; // Page Up
-        case 34:  return 0xff56; // Page Down
-        case 35:  return 0xff57; // End
-        case 36:  return 0xff50; // Home
-        case 37:  return 0xff51; // Left
-        case 38:  return 0xff52; // Top
-        case 39:  return 0xff53; // Right
-        case 40:  return 0xff54; // Bottom
-        case 42:  return 0xff61; // Print screen
-        case 45:  return 0xff63; // Insert
-        case 46:  return 0xffff; // Delete
-        case 91:  return 0xffeb; // Super
+        case 19: return 0xff13; // Pause
+        case 27: return 0xff1b; // Esc
+        case 32: return 0x20;   // Space
+        case 33: return 0xff55; // Page Up
+        case 34: return 0xff56; // Page Down
+        case 35: return 0xff57; // End
+        case 36: return 0xff50; // Home
+        case 37: return 0xff51; // Left
+        case 38: return 0xff52; // Top
+        case 39: return 0xff53; // Right
+        case 40: return 0xff54; // Bottom
+        case 42: return 0xff61; // Print screen
+        case 45: return 0xff63; // Insert
+        case 46: return 0xffff; // Delete
+        case 91: return 0xffeb; // Super
         case 106: return 0xffaa; // Multiply on Numpad
         case 107: return 0xffab; // Plus on Numpad
         case 109: return 0xffad; // Minus on Numpad
@@ -213,6 +336,8 @@ function keyCodeToLinuxSym(kc) {
 }
 
 </script>
+
+ <div id="moveinfo">0,0</div>
 
 </body>
 </html>

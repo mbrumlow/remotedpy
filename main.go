@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bytes"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -52,7 +50,7 @@ type ScreenInfo struct {
 
 func main() {
 
-	go timeTick()
+	//	go timeTick()
 
 	http.Handle("/dpy", websocket.Handler(DpyServer))
 	fs := http.FileServer(http.Dir("webroot"))
@@ -132,27 +130,62 @@ func DpyServer(ws *websocket.Conn) {
 	si := &ScreenInfo{Width: w, Height: h}
 	websocket.JSON.Send(ws, si)
 
+	//sw := false
+
 	dpy.StartStream()
 	defer dpy.StopStream()
-	for img := range dpy.C {
 
-		bb := new(bytes.Buffer)
+	for s := range dpy.S {
 
-		binary.Write(bb, binary.LittleEndian, uint32(img.X))
-		binary.Write(bb, binary.LittleEndian, uint32(img.Y))
-		binary.Write(bb, binary.LittleEndian, uint32(img.W))
-		binary.Write(bb, binary.LittleEndian, uint32(img.H))
-		binary.Write(bb, binary.LittleEndian, img.S)
-
-		err = websocket.Message.Send(ws, bb.Bytes())
+		err = websocket.Message.Send(ws, s.Bytes())
 		if err != nil {
 			fmt.Println("ENDING: " + err.Error())
 			return
 		}
 
-		img.DistoryImage()
 		mu.Lock()
 		count++
 		mu.Unlock()
 	}
+
+	/*
+		for img := range dpy.C {
+
+			bb := new(bytes.Buffer)
+
+			// example screen res info
+			w, h := dpy.GetScreenSize()
+			binary.Write(bb, binary.LittleEndian, uint32(1|(1<<24)))
+			binary.Write(bb, binary.LittleEndian, uint32(w|h<<16))
+
+			if !sw {
+
+				// example new window
+				binary.Write(bb, binary.LittleEndian, uint32(3|(2<<24)))
+				binary.Write(bb, binary.LittleEndian, uint32(5353))
+				binary.Write(bb, binary.LittleEndian, uint32(0|0<<16))
+				binary.Write(bb, binary.LittleEndian, uint32(565|396<<16))
+				sw = true
+			}
+
+			// example window update.
+			binary.Write(bb, binary.LittleEndian, uint32(len(img.S)+3)|(3<<24))
+			binary.Write(bb, binary.LittleEndian, uint32(5353))
+			binary.Write(bb, binary.LittleEndian, uint32(img.X)|(uint32(img.Y)<<16))
+			binary.Write(bb, binary.LittleEndian, uint32(img.W)|(uint32(img.H)<<16))
+			binary.Write(bb, binary.LittleEndian, img.S)
+
+			err = websocket.Message.Send(ws, bb.Bytes())
+			if err != nil {
+				fmt.Println("ENDING: " + err.Error())
+				return
+			}
+
+			img.DistoryImage()
+
+			mu.Lock()
+			count++
+			mu.Unlock()
+		}
+	*/
 }

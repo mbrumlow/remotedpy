@@ -1,176 +1,14 @@
 package x11
 
 /*
-#include <X11/Xlib.h>
-#include <X11/extensions/Xdamage.h>
-#include <X11/extensions/Xcomposite.h>
-#include <X11/keysym.h>
-#include <X11/extensions/XTest.h>
+#include "x11.h"
 #cgo LDFLAGS: -lX11 -lXdamage -lXcomposite -lXtst
-
-Pixmap windowPix;
-
-void DestroyImage(XImage *img) {
-	XDestroyImage(img);
-}
-
-void GetScreenSize(Display *dpy, int *width, int *height)  {
-	int screen = DefaultScreen(dpy);
-    *width = DisplayWidth(dpy, screen);
-    *height = DisplayHeight(dpy, screen);
-}
-
-unsigned long GetPixel(XImage *img, int x, int y) {
-	return XGetPixel(img, x, y);
-}
-
-static int xerror_handler(Display *dpy, XErrorEvent *e) {
-    return 0;
-}
-
-static void register_damage(Display *dpy, Window win) {
-    XWindowAttributes attrib;
-    if (XGetWindowAttributes(dpy, win, &attrib) && !attrib.override_redirect) {
-        XDamageCreate(dpy, win, XDamageReportRawRectangles);
-	}
-}
-
-void RegisterDamanges(Display *dpy) {
-
-	Window root = DefaultRootWindow(dpy);
-	XSelectInput(dpy, root, SubstructureNotifyMask);
-
-    Window rootp, parent;
-    Window *children;
-    unsigned int i, nchildren;
-    XQueryTree(dpy, root, &rootp, &parent, &children, &nchildren);
-
-    XSetErrorHandler(xerror_handler);
-
- 	XCompositeRedirectSubwindows( dpy, RootWindow( dpy, i ), CompositeRedirectAutomatic );
-
-	register_damage(dpy, root);
-	for (i = 0; i < nchildren; i++) {
-		register_damage(dpy, children[i]);
-	}
-
-    XFree(children);
-}
-
-void SendKey(Display *dpy, unsigned int key, int down) {
-
-	Bool d = False;
-	unsigned int kc = XKeysymToKeycode(dpy, key);
-
-	if(down == 1) {
-		d = True;
-	}
-	XTestFakeKeyEvent(dpy, kc, d, 0);
-	XFlush(dpy);
-}
-
-void SendMouseClick(Display *dpy, int button, unsigned x, unsigned y, int down) {
-	Bool d = False;
-	if( down == 1) {
-		d = True;
-	}
-	XTestFakeMotionEvent(dpy, 0, x, y, 0);
-	XTestFakeButtonEvent(dpy, button, d, 0);
-	XFlush(dpy);
-}
-
-void SendMouseMove(Display *dpy, unsigned x, unsigned y) {
-	XTestFakeMotionEvent(dpy, 0, x, y, 0);
-	XFlush(dpy);
-}
-
-XImage *GetDamage(Display *dpy, int damageEvent, int *x, int *y, int *h, int *w)  {
-
-    XEvent ev;
-
-    int screen = DefaultScreen(dpy);
-
-	while(1) {
-
-		XNextEvent(dpy, &ev);
-
-		if(ev.type == MapNotify){
-			 register_damage(dpy, ev.xcreatewindow.window);
-			 continue;
-		}
-
-		if( ev.type == damageEvent + XDamageNotify ) {
-
-			int rx = 0;
-			int ry = 0;
-			int fr = 0;
-			int damage = 0;
-
-			do {
-				XDamageNotifyEvent  *dev = (XDamageNotifyEvent *) &ev;
-
-				// TODO: split large non-overlapping regions up instead of
-				// of making one large region.
-
-				if(fr == 0) {
-					*x = dev->area.x;
-					*w = dev->area.width;
-					rx = dev->area.x + dev->area.width;
-				} else if(dev->area.x < *x) {
-        			*x = dev->area.x;
-				}
-
-				if(fr == 0) {
-					*y = dev->area.y;
-					*h = dev->area.height;
-					ry = dev->area.y + dev->area.height;
-				} else if(dev->area.y < *y) {
-        			*y = dev->area.y;
-				}
-
-				if( dev->area.y + dev->area.height > ry ) {
-					ry = dev->area.y + dev->area.height;
-					*h = ry - *y;
-				}
-
-				if( dev->area.x + dev->area.width > rx ) {
-					rx = dev->area.x  + dev->area.width;
-					*w = rx - *x;
-				}
-
-				if(*x < 0) {
-					*x = 0;
-				}
-
-				if(*y < 0) {
-					*y = 0;
-				}
-
-				fr = 1;
-        		damage = 1;
-				XDamageSubtract( dpy, dev->damage, None, None );
-			} while (XCheckTypedEvent(dpy, damageEvent + XDamageNotify, &ev));
-
-			if(damage) {
-
-				*h = ry - *y;
-				*w = rx - *x;
-
-				return XGetImage(dpy,
-					DefaultRootWindow(dpy),
-                	*x, *y, *w, *h,
-                	AllPlanes, ZPixmap);
-			}
-    	}
-	}
-
-	return NULL;
-}
-
 */
 import "C"
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
 	"reflect"
 	"time"
@@ -182,6 +20,7 @@ type Display struct {
 	dpy2        *C.struct__XDisplay
 	damageEvent C.int
 	C           chan Image
+	S           chan *bytes.Buffer
 }
 
 type Image struct {
@@ -217,6 +56,7 @@ func OpenDisplay() (*Display, error) {
 
 	d := &Display{dpy: dpy, dpy2: dpy2, damageEvent: damageEvent}
 	d.C = make(chan Image, 2)
+	d.S = make(chan *bytes.Buffer, 2)
 
 	return d, nil
 }
@@ -232,7 +72,8 @@ func (d *Display) GetScreenSize() (int, int) {
 }
 
 func (d *Display) StartStream() {
-	go d.getChanges()
+	//	go d.getChanges()
+	go d.getStreamBuffer()
 }
 
 func (d *Display) SendKey(key uint32, down bool) {
@@ -257,6 +98,78 @@ func (d *Display) SendMouseClick(button int, x, y uint32, down bool) {
 
 func (d *Display) StopStream() {
 	// TODO: Send event to X and shutdown the getChanges.
+}
+
+func (d *Display) getInitalStreamBuffer() *bytes.Buffer {
+
+	bb := new(bytes.Buffer)
+
+	sw, sh := d.GetScreenSize()
+	binary.Write(bb, binary.LittleEndian, uint32(1|(1<<24)))
+	binary.Write(bb, binary.LittleEndian, uint32(sw|sh<<16))
+
+	// TODO: loop over each window and send a new window event.
+
+	// example new window
+	binary.Write(bb, binary.LittleEndian, uint32(3|(2<<24)))
+	binary.Write(bb, binary.LittleEndian, uint32(4210123))
+	binary.Write(bb, binary.LittleEndian, uint32(0|0<<16))
+	binary.Write(bb, binary.LittleEndian, uint32(565|396<<16))
+
+	return bb
+}
+
+func doBuffering(d chan *bytes.Buffer, s chan *bytes.Buffer) {
+
+	ticker := time.NewTicker(time.Millisecond * 10)
+	defer ticker.Stop()
+
+	for _ = range ticker.C {
+		bb := new(bytes.Buffer)
+		c := len(s)
+		for i := 0; i < c; i++ {
+			ba := <-s
+			bb.Write(ba.Bytes())
+		}
+
+		d <- bb
+	}
+}
+
+func (d *Display) getStreamBuffer() {
+
+	d.S <- d.getInitalStreamBuffer()
+
+	s := make(chan *bytes.Buffer, 100)
+
+	go doBuffering(d.S, s)
+
+	ticker := time.NewTicker(time.Millisecond * 10)
+	defer ticker.Stop()
+
+	ticker2 := time.NewTicker(time.Millisecond * 16)
+	defer ticker2.Stop()
+
+	bb := new(bytes.Buffer)
+
+	for _ = range ticker.C {
+
+		var xe C.XXEvent
+
+		C.NextEvent(d.dpy, d.damageEvent, &xe)
+
+		switch int(xe.e) {
+		case 1:
+			DamageStream(&xe, bb)
+			s <- bb
+			bb = new(bytes.Buffer)
+		case 2:
+			ConfigureStream(&xe, bb)
+			s <- bb
+			bb = new(bytes.Buffer)
+		}
+
+	}
 }
 
 func (d *Display) getChanges() {
