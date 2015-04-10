@@ -10,6 +10,8 @@
 var imgData;
 var canvas = document.getElementById("screenCanvas");
 var ctx = canvas.getContext("2d");
+var screenWidth = 0; 
+var screenHeight = 0; 
 
 var ws = new WebSocket("ws://" +window.location.host + "/dpy");
 ws.binaryType = "arraybuffer";
@@ -29,6 +31,8 @@ var msgHandler = function(msgevent) {
             case 1: screenUpdate(buf.subarray(p+1, p+1+len)); break;
             case 2: pixelUpdate(buf.subarray(p+1, p+1+len)); break;
         }
+        
+        p = p+len;
     }
 
 };
@@ -41,12 +45,14 @@ function screenUpdate(buf) {
     canvas.height = h; 
     canvas.style.width = w + 'px'; 
     canvas.style.height = h + 'px';
+    screenWidth = w; 
+    screenHeight = h; 
     
     imgData = ctx.createImageData(w, h);
 }
 
 function pixelUpdate(pixelArray) {
-  
+
     var sx = pixelArray[0] & 0x0000ffff;
     var sy = pixelArray[0] >> 16;
     var w = pixelArray[1] & 0x0000ffff;
@@ -58,10 +64,10 @@ function pixelUpdate(pixelArray) {
             var o = (((w * y) + x) - ((w * sy) + sx));
             var px = pixelArray[o + 2];
             
-            imgData.data[((canvas.width * y) + x) * 4] = (px & 0x00ff0000) >> 16;
-            imgData.data[((canvas.width * y) + x) * 4 + 1] = (px & 0x0000ff00) >> 8;
-            imgData.data[((canvas.width * y) + x) * 4 + 2] = (px & 0x000000ff)
-            imgData.data[((canvas.width * y) + x) * 4 + 3] = 255; 
+            imgData.data[((screenWidth * y) + x) * 4] = (px & 0x00ff0000) >> 16;
+            imgData.data[((screenWidth * y) + x) * 4 + 1] = (px & 0x0000ff00) >> 8;
+            imgData.data[((screenWidth * y) + x) * 4 + 2] = (px & 0x000000ff)
+            imgData.data[((screenWidth * y) + x) * 4 + 3] = 255; 
         }
     }
    

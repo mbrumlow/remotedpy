@@ -43,7 +43,7 @@ func OpenDisplay() (*Display, error) {
 	C.RegisterDamanges(dpy)
 
 	d := &Display{dpy: dpy, dpy2: dpy2, damageEvent: damageEvent}
-	d.S = make(chan *bytes.Buffer)
+	d.S = make(chan *bytes.Buffer, 4)
 
 	return d, nil
 }
