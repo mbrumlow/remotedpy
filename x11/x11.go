@@ -7,26 +7,16 @@ package x11
 import "C"
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
-	"reflect"
-	"time"
-	"unsafe"
 )
 
 type Display struct {
 	dpy         *C.struct__XDisplay
 	dpy2        *C.struct__XDisplay
 	damageEvent C.int
-	C           chan Image
-}
-
-type Image struct {
-	img *C.struct__XImage
-	S   []C.uint
-	X   int
-	Y   int
-	W   int
-	H   int
+	S           chan *bytes.Buffer
 }
 
 func OpenDisplay() (*Display, error) {
@@ -52,7 +42,7 @@ func OpenDisplay() (*Display, error) {
 	C.RegisterDamanges(dpy)
 
 	d := &Display{dpy: dpy, dpy2: dpy2, damageEvent: damageEvent}
-	d.C = make(chan Image, 2)
+	d.S = make(chan *bytes.Buffer)
 
 	return d, nil
 }
@@ -68,7 +58,7 @@ func (d *Display) GetScreenSize() (int, int) {
 }
 
 func (d *Display) StartStream() {
-	go d.getChanges()
+	go d.getStreamBuffer()
 }
 
 func (d *Display) SendKey(key uint32, down bool) {
@@ -95,44 +85,33 @@ func (d *Display) StopStream() {
 	// TODO: Send event to X and shutdown the getChanges.
 }
 
-func (d *Display) getChanges() {
+func (d *Display) getInitalStreamBuffer() *bytes.Buffer {
 
-	var x C.int
-	var y C.int
-	var h C.int
-	var w C.int
+	bb := new(bytes.Buffer)
 
-	ticker := time.NewTicker(time.Millisecond * 10)
-	defer ticker.Stop()
+	sw, sh := d.GetScreenSize()
+	binary.Write(bb, binary.LittleEndian, uint32(1|(1<<24)))
+	binary.Write(bb, binary.LittleEndian, uint32(sw|sh<<16))
 
-	for _ = range ticker.C {
-		img := C.GetDamage(d.dpy, d.damageEvent, &x, &y, &h, &w)
-		if img != nil {
+	return bb
+}
 
-			length := (int(w) * int(h))
-			hdr := reflect.SliceHeader{
-				Data: uintptr(unsafe.Pointer(img.data)),
-				Len:  length,
-				Cap:  length,
-			}
-			goSlice := *(*[]C.uint)(unsafe.Pointer(&hdr))
+func (d *Display) getStreamBuffer() {
 
-			i := Image{img: img, X: int(x), Y: int(y), H: int(h), W: int(w), S: goSlice}
-			d.C <- i
+	d.S <- d.getInitalStreamBuffer()
+
+	for {
+		var xe C.XXEvent
+		ret := C.GetDamage(d.dpy, d.damageEvent, &xe)
+		if ret == C.int(0) {
+			continue
+		}
+
+		switch int(xe.e) {
+		case 1:
+			d.S <- DamageStream(&xe)
 		}
 	}
-}
-
-func (i *Image) GetPixel(x, y int) uint32 {
-	cx := C.int(x)
-	cy := C.int(y)
-	cr := C.GetPixel(i.img, cx, cy)
-	ret := uint32(cr)
-	return ret
-}
-
-func (i *Image) DistoryImage() {
-	C.DestroyImage(i.img)
 }
 
 func (d *Display) Close() {

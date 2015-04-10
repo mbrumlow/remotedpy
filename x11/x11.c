@@ -1,11 +1,9 @@
-#include <stdio.h>
-#include <X11/Xlib.h>
-#include <X11/extensions/Xdamage.h>
-#include <X11/extensions/Xcomposite.h>
-#include <X11/keysym.h>
-#include <X11/extensions/XTest.h>
 
-Pixmap windowPix;
+#include "x11.h"
+
+static int xerror_handler(Display *dpy, XErrorEvent *e) {
+    return 0;
+}
 
 void DestroyImage(XImage *img) {
 	XDestroyImage(img);
@@ -17,13 +15,6 @@ void GetScreenSize(Display *dpy, int *width, int *height)  {
     *height = DisplayHeight(dpy, screen);
 }
 
-unsigned long GetPixel(XImage *img, int x, int y) {
-	return XGetPixel(img, x, y);
-}
-
-static int xerror_handler(Display *dpy, XErrorEvent *e) {
-    return 0;
-}
 
 static void register_damage(Display *dpy, Window win) {
     XWindowAttributes attrib;
@@ -81,7 +72,7 @@ void SendMouseMove(Display *dpy, unsigned x, unsigned y) {
 	XFlush(dpy);
 }
 
-XImage *GetDamage(Display *dpy, int damageEvent, int *x, int *y, int *h, int *w)  {
+int GetDamage(Display *dpy, int damageEvent, XXEvent *xxev)  {
 
     XEvent ev;
 
@@ -104,65 +95,67 @@ XImage *GetDamage(Display *dpy, int damageEvent, int *x, int *y, int *h, int *w)
 			int ry = 0;
 			int fr = 0;
 			int damage = 0;
+            int x, y, w, h;
 
 			do { // Gobble up the rest of the damage events.
 
                 XDamageNotifyEvent  *dev = (XDamageNotifyEvent *) &ev;
-				// TODO: split large non-overlapping regions up instead of
+
+            	// TODO: split large non-overlapping regions up instead of
 				// of making one large region.
 
-
 				if(fr == 0) {
-					*x = dev->area.x;
-					*w = dev->area.width;
+					x = dev->area.x;
+					w = dev->area.width;
 					rx = dev->area.x + dev->area.width;
-				} else if(dev->area.x < *x) {
-        			*x = dev->area.x;
+				} else if(dev->area.x < x) {
+        			x = dev->area.x;
 				}
 
 				if(fr == 0) {
-					*y = dev->area.y;
-					*h = dev->area.height;
+					y = dev->area.y;
+					h = dev->area.height;
 					ry = dev->area.y + dev->area.height;
-				} else if(dev->area.y < *y) {
-        			*y = dev->area.y;
+				} else if(dev->area.y < y) {
+        			y = dev->area.y;
 				}
 
 				if( dev->area.y + dev->area.height > ry ) {
 					ry = dev->area.y + dev->area.height;
-					*h = ry - *y;
+					h = ry - y;
 				}
 
 				if( dev->area.x + dev->area.width > rx ) {
 					rx = dev->area.x  + dev->area.width;
-					*w = rx - *x;
+					w = rx - x;
 				}
 
                 // TODO: Figure out what -1 really means.
-				if(*x < 0) *x = 0;
-				if(*y < 0) *y = 0;
+				if(x < 0) x = 0;
+				if(y < 0) y = 0;
 
 				fr = 1;
         		damage = 1;
 				XDamageSubtract( dpy, dev->damage, None, None );
-
             } while (XCheckTypedEvent(dpy, damageEvent + XDamageNotify, &ev));
 
-			if(damage) {
+            h = ry - y;
+            w = rx - x;
 
-				*h = ry - *y;
-				*w = rx - *x;
+            XImage *i = XGetImage(dpy, DefaultRootWindow(dpy), x, y, w, h, AllPlanes, ZPixmap);
 
-				XImage *i = XGetImage(dpy,
-					DefaultRootWindow(dpy),
-                	*x, *y, *w, *h,
-                	AllPlanes, ZPixmap);
+            xxev->e = 1;
+            xxev->x = x;
+            xxev->y = y;
+            xxev->w = w;
+            xxev->h = h;
+            xxev->image = i;
 
-				return i;
-			}
-    	}
+            return 1;
+
+        }
 	}
 
-	return NULL;
+    return 0;
 }
 
