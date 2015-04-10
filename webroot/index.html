@@ -177,11 +177,12 @@ function keyCodeToLinuxSym(kc) {
     }
 
     switch(kc) {
-        case 8:  return 0xff08; // Backspace
-        case 13: return 0xff0d; // Enter
-        case 16: return 0xffe1; // Shift (Left and Right) FIXME: Right
-        case 17: return 0xffe3; // Control (Left and Right) FIXME: Right
-        case 18: return 0xffe9; // Alt (Left and Right) FIXME: Right
+        case 8:   return 0xff08; // Backspace
+        case 9:   return 0xff09; // Tab 
+        case 13:  return 0xff0d; // Enter
+        case 16:  return 0xffe1; // Shift (Left and Right) FIXME: Right
+        case 17:  return 0xffe3; // Control (Left and Right) FIXME: Right
+        case 18:  return 0xffe9; // Alt (Left and Right) FIXME: Right
         case 19:  return 0xff13; // Pause
         case 27:  return 0xff1b; // Esc
         case 32:  return 0x20;   // Space
