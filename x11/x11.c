@@ -87,6 +87,7 @@ int GetDamage(Display *dpy, int damageEvent, XXEvent *xxev)  {
 			 continue;
 		}
 
+        int count = 0;
 		if( ev.type == damageEvent + XDamageNotify ) {
 
 			int rx = 0;
