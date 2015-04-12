@@ -29,8 +29,8 @@ var msgHandler = function(msgevent) {
         key = (buf[p] & 0xff000000) >> 24; 
 
         switch(key) {
-            case 1: screenUpdate(buf.subarray(p+1, p+len+1 )); break;
-            case 2: pixelUpdate(buf.subarray(p+1, p+len+1 )); break;
+            case 1: screenUpdate(buf.subarray(p+1, p+len+1)); break;
+            case 2: pixelUpdate(buf.subarray(p+1, p+len+1)); break;
         }
         
     }
