@@ -35,8 +35,6 @@ void RegisterDamanges(Display *dpy) {
 
     XSetErrorHandler(xerror_handler);
 
-// 	XCompositeRedirectSubwindows( dpy, RootWindow( dpy, 0 ), CompositeRedirectAutomatic );
-
 	register_damage(dpy, root);
 	for (i = 0; i < nchildren; i++) {
         register_damage(dpy, children[i]);
@@ -143,7 +141,6 @@ int GetDamage(Display *dpy, int damageEvent, XXEvent *xxev)  {
 
             XImage *i = XGetImage(dpy, DefaultRootWindow(dpy), x, y, w, h, AllPlanes, ZPixmap);
 
-
             // Going to make some attemt to reduce the number of pixels we have to send
             // This will compress any connsecitive pixels into a single pixel and use
             // the alpha channel to store the number of pixels following that have
@@ -167,7 +164,6 @@ int GetDamage(Display *dpy, int damageEvent, XXEvent *xxev)  {
                 }
             }
 
-
             xxev->e = 1;
             xxev->x = x;
             xxev->y = y;
@@ -177,7 +173,6 @@ int GetDamage(Display *dpy, int damageEvent, XXEvent *xxev)  {
             xxev->image = i;
 
             return 1;
-
         }
 	}
 

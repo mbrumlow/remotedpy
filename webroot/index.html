@@ -19,7 +19,6 @@ ws.binaryType = "arraybuffer";
 var msgHandler = function(msgevent) {
     
     var buf = new Uint32Array(msgevent.data);
-    
     var len = 0;
     var key = 0; 
     
@@ -27,10 +26,10 @@ var msgHandler = function(msgevent) {
         
         len = (buf[p] & 0x00ffffff);
         key = (buf[p] & 0xff000000) >> 24; 
-
+    
         switch(key) {
-            case 1: screenUpdate(buf.subarray(p+1, p+len+1)); break;
-            case 2: pixelUpdate(buf.subarray(p+1, p+len+1)); break;
+            case 1: screenUpdate(buf.subarray(p+1, p+1+len)); break;
+            case 2: pixelUpdate(buf.subarray(p+1, p+1+len)); break;
         }
         
     }
@@ -53,17 +52,14 @@ function screenUpdate(buf) {
 
 function pixelUpdate(pixelArray) {
 
-    // x and y position of this pixel array. 
     var sx = pixelArray[0] & 0x0000ffff;
     var sy = pixelArray[0] >> 16;
-    
-    // width and hight of the pixel array. 
     var w = pixelArray[1] & 0x0000ffff;
-    var h = pixelArray[1] >> 16;
-    
-    var o = 2; // ofset into the array  
-    var r = 0; // number of times to repeate the current color. 
-    var px = 0; 
+    var h = pixelArray[1] >> 16; 
+
+    var r = 0;
+    var o = 2; 
+    var px;
 
     for ( var y = sy; y < (sy + h); y++ ) {
         for( var x = sx; x < (sx + w); x++ ) {
@@ -77,9 +73,8 @@ function pixelUpdate(pixelArray) {
 
             imgData.data[((screenWidth * y) + x) * 4] = (px & 0x00ff0000) >> 16;
             imgData.data[((screenWidth * y) + x) * 4 + 1] = (px & 0x0000ff00) >> 8;
-            imgData.data[((screenWidth * y) + x) * 4 + 2] = (px & 0x000000ff);
-            imgData.data[((screenWidth * y) + x) * 4 + 3] = 255;
-
+            imgData.data[((screenWidth * y) + x) * 4 + 2] = (px & 0x000000ff)
+            imgData.data[((screenWidth * y) + x) * 4 + 3] = 255; 
         }
     }
    
@@ -190,7 +185,7 @@ function keyCodeToLinuxSym(kc) {
 
     switch(kc) {
         case 8:   return 0xff08; // Backspace
-        case 9:   return 0xff09; // Tab 
+        case 9:   return 0xff09; // Tab
         case 13:  return 0xff0d; // Enter
         case 16:  return 0xffe1; // Shift (Left and Right) FIXME: Right
         case 17:  return 0xffe3; // Control (Left and Right) FIXME: Right
