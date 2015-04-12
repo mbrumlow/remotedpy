@@ -35,8 +35,6 @@ void RegisterDamanges(Display *dpy) {
 
     XSetErrorHandler(xerror_handler);
 
-// 	XCompositeRedirectSubwindows( dpy, RootWindow( dpy, 0 ), CompositeRedirectAutomatic );
-
 	register_damage(dpy, root);
 	for (i = 0; i < nchildren; i++) {
         register_damage(dpy, children[i]);
@@ -142,15 +140,38 @@ int GetDamage(Display *dpy, int damageEvent, XXEvent *xxev)  {
 
             XImage *i = XGetImage(dpy, DefaultRootWindow(dpy), x, y, w, h, AllPlanes, ZPixmap);
 
+            // Going to make some attemt to reduce the number of pixels we have to send
+            // This will compress any connsecitive pixels into a single pixel and use
+            // the alpha channel to store the number of pixels following that have
+            // the same color.
+            //
+            unsigned int *pix = (unsigned int *) i->data;
+            int z = 0; // positionn in the array.
+            int c = 0; // same color count.
+            int l = 0; // last position in the compressed version.
+            int p = pix[0] & 0x00FFFFF; // First pixle with alpha channel cleared.
+
+            for(z = 1; z <= w * h; z ++ ) {
+                unsigned int n = pix[z] & 0x00FFFFFF;
+                if( n == p && c < 255 && z < w * h ) {
+                    c++;
+                } else {
+                    pix[l] = (c << 24) | (p & 0x00FFFFFF);
+                    p = n;
+                    c = 0;
+                    l++;
+                }
+            }
+
             xxev->e = 1;
             xxev->x = x;
             xxev->y = y;
             xxev->w = w;
             xxev->h = h;
+            xxev->l = l;
             xxev->image = i;
 
             return 1;
-
         }
 	}
 

@@ -17,11 +17,10 @@ func DamageStream(xe *C.XXEvent) *bytes.Buffer {
 
 	defer C.DestroyImage(xe.image)
 
-	length := (int(xe.w) * int(xe.h))
 	hdr := reflect.SliceHeader{
 		Data: uintptr(unsafe.Pointer(xe.image.data)),
-		Len:  length,
-		Cap:  length,
+		Len:  int(xe.l),
+		Cap:  int(xe.l),
 	}
 	goSlice := *(*[]C.uint)(unsafe.Pointer(&hdr))
 

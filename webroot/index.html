@@ -57,13 +57,23 @@ function pixelUpdate(pixelArray) {
     var sy = pixelArray[0] >> 16;
     var w = pixelArray[1] & 0x0000ffff;
     var h = pixelArray[1] >> 16; 
-  
+
+    var r = 0;
+    var o = 2; 
+    var px;
+
     for ( var y = sy; y < (sy + h); y++ ) {
         for( var x = sx; x < (sx + w); x++ ) {
            
-            var o = (((w * y) + x) - ((w * sy) + sx));
-            var px = pixelArray[o + 2];
-            
+
+            if( r == 0 ) { 
+                px = pixelArray[o++];
+                r = ((px & 0xff000000) >> 24) & 0x000000ff;
+            } else {
+                r--;
+            }
+
+
             imgData.data[((screenWidth * y) + x) * 4] = (px & 0x00ff0000) >> 16;
             imgData.data[((screenWidth * y) + x) * 4 + 1] = (px & 0x0000ff00) >> 8;
             imgData.data[((screenWidth * y) + x) * 4 + 2] = (px & 0x000000ff)

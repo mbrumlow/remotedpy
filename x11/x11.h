@@ -12,6 +12,7 @@ typedef struct XXEvent {
     int y;
     int w;
     int h;
+    int l;
     XImage *image;
 } XXEvent;
 
