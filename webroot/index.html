@@ -32,7 +32,6 @@ var msgHandler = function(msgevent) {
             case 2: pixelUpdate(buf.subarray(p+1, p+1+len)); break;
         }
         
-//        p = p+len;
     }
 
 };
@@ -65,14 +64,12 @@ function pixelUpdate(pixelArray) {
     for ( var y = sy; y < (sy + h); y++ ) {
         for( var x = sx; x < (sx + w); x++ ) {
            
-
             if( r == 0 ) { 
                 px = pixelArray[o++];
                 r = ((px & 0xff000000) >> 24) & 0x000000ff;
             } else {
                 r--;
             }
-
 
             imgData.data[((screenWidth * y) + x) * 4] = (px & 0x00ff0000) >> 16;
             imgData.data[((screenWidth * y) + x) * 4 + 1] = (px & 0x0000ff00) >> 8;
@@ -187,11 +184,12 @@ function keyCodeToLinuxSym(kc) {
     }
 
     switch(kc) {
-        case 8:  return 0xff08; // Backspace
-        case 13: return 0xff0d; // Enter
-        case 16: return 0xffe1; // Shift (Left and Right) FIXME: Right
-        case 17: return 0xffe3; // Control (Left and Right) FIXME: Right
-        case 18: return 0xffe9; // Alt (Left and Right) FIXME: Right
+        case 8:   return 0xff08; // Backspace
+        case 9:   return 0xff09; // Tab
+        case 13:  return 0xff0d; // Enter
+        case 16:  return 0xffe1; // Shift (Left and Right) FIXME: Right
+        case 17:  return 0xffe3; // Control (Left and Right) FIXME: Right
+        case 18:  return 0xffe9; // Alt (Left and Right) FIXME: Right
         case 19:  return 0xff13; // Pause
         case 27:  return 0xff1b; // Esc
         case 32:  return 0x20;   // Space
