@@ -91,7 +91,7 @@ func (d *Display) getInitalStreamBuffer() *bytes.Buffer {
 	bb := new(bytes.Buffer)
 
 	sw, sh := d.GetScreenSize()
-	binary.Write(bb, binary.LittleEndian, uint32(1|(1<<24)))
+	binary.Write(bb, binary.LittleEndian, uint32(2|(1<<24)))
 	binary.Write(bb, binary.LittleEndian, uint32(sw|sh<<16))
 
 	return bb
