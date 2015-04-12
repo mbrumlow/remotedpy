@@ -54,21 +54,33 @@ function screenUpdate(buf) {
 
 function pixelUpdate(pixelArray) {
 
+    // x and y position of this pixel array. 
     var sx = pixelArray[0] & 0x0000ffff;
     var sy = pixelArray[0] >> 16;
+    
+    // width and hight of the pixel array. 
     var w = pixelArray[1] & 0x0000ffff;
-    var h = pixelArray[1] >> 16; 
-  
+    var h = pixelArray[1] >> 16;
+    
+    var o = 2; // ofset into the array  
+    var r = 0; // number of times to repeate the current color. 
+    var px = 0; 
+
     for ( var y = sy; y < (sy + h); y++ ) {
         for( var x = sx; x < (sx + w); x++ ) {
            
-            var o = (((w * y) + x) - ((w * sy) + sx));
-            var px = pixelArray[o + 2];
-            
+            if( r == 0 ) { 
+                px = pixelArray[o++];
+                r = ((px & 0xff000000) >> 24) & 0x000000ff;
+            } else {
+                r--;
+            }
+
             imgData.data[((screenWidth * y) + x) * 4] = (px & 0x00ff0000) >> 16;
             imgData.data[((screenWidth * y) + x) * 4 + 1] = (px & 0x0000ff00) >> 8;
-            imgData.data[((screenWidth * y) + x) * 4 + 2] = (px & 0x000000ff)
-            imgData.data[((screenWidth * y) + x) * 4 + 3] = 255; 
+            imgData.data[((screenWidth * y) + x) * 4 + 2] = (px & 0x000000ff);
+            imgData.data[((screenWidth * y) + x) * 4 + 3] = 255;
+
         }
     }
    
