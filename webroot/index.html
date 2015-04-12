@@ -19,20 +19,21 @@ ws.binaryType = "arraybuffer";
 var msgHandler = function(msgevent) {
     
     var buf = new Uint32Array(msgevent.data);
+    
     var len = 0;
     var key = 0; 
     
-    for(var p = 0; p < buf.length; p = p + len + 1) { 
+    for(var p = 0; p < buf.length; p = p + len) { 
         
         len = (buf[p] & 0x00ffffff);
         key = (buf[p] & 0xff000000) >> 24; 
-    
+   
+        console.log("KEY: ", key, " LEN:", len)
+
         switch(key) {
-            case 1: screenUpdate(buf.subarray(p+1, p+1+len)); break;
-            case 2: pixelUpdate(buf.subarray(p+1, p+1+len)); break;
+            case 1: screenUpdate(buf.subarray(p+1, p+len+1 )); break;
+            case 2: pixelUpdate(buf.subarray(p+1, p+len+1 )); break;
         }
-        
-        p = p+len;
     }
 
 };
