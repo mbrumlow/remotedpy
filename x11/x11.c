@@ -1,6 +1,8 @@
 
 #include "x11.h"
 
+static int nc = 0;
+
 static int xerror_handler(Display *dpy, XErrorEvent *e) {
     return 0;
 }
@@ -73,7 +75,7 @@ void SendMouseMove(Display *dpy, unsigned x, unsigned y) {
 int GetDamage(Display *dpy, int damageEvent, XXEvent *xxev)  {
 
     XEvent ev;
-
+    Window root = DefaultRootWindow(dpy);
     int screen = DefaultScreen(dpy);
 
 	while(1) {
@@ -87,6 +89,8 @@ int GetDamage(Display *dpy, int damageEvent, XXEvent *xxev)  {
 			 continue;
 		}
 
+        XAnyEvent *any = (XAnyEvent *) &ev;
+
         int count = 0;
 		if( ev.type == damageEvent + XDamageNotify ) {
 
@@ -98,9 +102,12 @@ int GetDamage(Display *dpy, int damageEvent, XXEvent *xxev)  {
 			do { // Gobble up the rest of the damage events.
 
                 XDamageNotifyEvent  *dev = (XDamageNotifyEvent *) &ev;
+                XAnyEvent *any = (XAnyEvent *) &ev;
 
-            	// TODO: split large non-overlapping regions up instead of
-				// of making one large region.
+                if( !(any->window == root) ) {
+                    dev->area.x = dev->geometry.x;
+                    dev->area.y = dev->geometry.y;
+                }
 
 				if(fr == 0) {
 					x = dev->area.x;
@@ -154,6 +161,16 @@ int GetDamage(Display *dpy, int damageEvent, XXEvent *xxev)  {
 
             for(z = 1; z <= w * h; z ++ ) {
                 unsigned int n = pix[z] & 0x00FFFFFF;
+
+                /*
+                // Debug updates to the screen.
+                switch(nc) {
+                    case 0: n = n | 0x000000FF; break;
+                    case 1: n = n | 0x0000FF00; break;
+                    case 2: n = n | 0x00FF0000; break;
+                }
+                */
+
                 if( n == p && c < 255 && z < w * h ) {
                     c++;
                 } else {
@@ -162,6 +179,11 @@ int GetDamage(Display *dpy, int damageEvent, XXEvent *xxev)  {
                     c = 0;
                     l++;
                 }
+            }
+
+            nc++;
+            if(nc > 2) {
+             nc = 0;
             }
 
             xxev->e = 1;
