@@ -104,9 +104,10 @@ func (d *Display) getStreamBuffer() {
 	ticker := time.NewTicker(time.Millisecond * 10)
 	defer ticker.Stop()
 
+	var xe C.XXEvent
+
 	for _ = range ticker.C {
 
-		var xe C.XXEvent
 		ret := C.GetDamage(d.dpy, d.damageEvent, &xe)
 		if ret == C.int(0) {
 			continue

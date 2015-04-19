@@ -1,14 +1,29 @@
 
 #include "x11.h"
 
+#include <stdlib.h>
+#include <string.h>
+
+static int gfr = 1;
 static int nc = 0;
 
 static int xerror_handler(Display *dpy, XErrorEvent *e) {
     return 0;
 }
 
-void DestroyImage(XImage *img) {
-	XDestroyImage(img);
+void DestroyImage(XXEvent *xe) {
+
+    /*
+    if(xe->image != NULL) {
+	    XDestroyImage(xe->image);
+        xe->image = NULL;
+    }
+
+    if(xe->data != NULL) {
+        free(xe->data);
+        xe->data = NULL;
+    }
+    */
 }
 
 void GetScreenSize(Display *dpy, int *width, int *height)  {
@@ -94,105 +109,91 @@ int GetDamage(Display *dpy, int damageEvent, XXEvent *xxev)  {
         int count = 0;
 		if( ev.type == damageEvent + XDamageNotify ) {
 
-			int rx = 0;
-			int ry = 0;
-			int fr = 0;
-            int x, y, w, h;
+            int screen = DefaultScreen(dpy);
+            int width = DisplayWidth(dpy, screen);
+            int height = DisplayHeight(dpy, screen);
 
 			do { // Gobble up the rest of the damage events.
-
-                XDamageNotifyEvent  *dev = (XDamageNotifyEvent *) &ev;
-                XAnyEvent *any = (XAnyEvent *) &ev;
-
-                if( !(any->window == root) ) {
-                    dev->area.x = dev->geometry.x;
-                    dev->area.y = dev->geometry.y;
-                }
-
-				if(fr == 0) {
-					x = dev->area.x;
-					w = dev->area.width;
-					rx = dev->area.x + dev->area.width;
-				} else if(dev->area.x < x) {
-        			x = dev->area.x;
-				}
-
-				if(fr == 0) {
-					y = dev->area.y;
-					h = dev->area.height;
-					ry = dev->area.y + dev->area.height;
-				} else if(dev->area.y < y) {
-        			y = dev->area.y;
-				}
-
-				if( dev->area.y + dev->area.height > ry ) {
-					ry = dev->area.y + dev->area.height;
-					h = ry - y;
-				}
-
-				if( dev->area.x + dev->area.width > rx ) {
-					rx = dev->area.x  + dev->area.width;
-					w = rx - x;
-				}
-
-                // TODO: Figure out what -1 really means.
-				if(x < 0) x = 0;
-				if(y < 0) y = 0;
-
-				fr = 1;
-				XDamageSubtract( dpy, dev->damage, None, None );
+				XDamageNotifyEvent  *dev = (XDamageNotifyEvent *) &ev;
+                XDamageSubtract( dpy, dev->damage, None, None );
             } while (XCheckTypedEvent(dpy, damageEvent + XDamageNotify, &ev));
 
-            h = ry - y;
-            w = rx - x;
+            XImage *i = XGetImage(dpy, DefaultRootWindow(dpy), 0, 0, width, height, AllPlanes, ZPixmap);
 
-            XImage *i = XGetImage(dpy, DefaultRootWindow(dpy), x, y, w, h, AllPlanes, ZPixmap);
+            if( xxev->out == NULL ) {
+                xxev->out = (unsigned int *) malloc(sizeof(unsigned int) * ((width * height) + 3));
+            }
 
-            // Going to make some attemt to reduce the number of pixels we have to send
-            // This will compress any connsecitive pixels into a single pixel and use
-            // the alpha channel to store the number of pixels following that have
-            // the same color.
-            //
-            unsigned int *pix = (unsigned int *) i->data;
+            memset(xxev->out, 0x0f, sizeof(unsigned int) * ((width * height) + 3));
+
+            if( xxev->data == NULL ) {
+                xxev->data = (unsigned int *) malloc(sizeof(unsigned int) * (width * height));
+                memset(xxev->data, 0x0F, sizeof(unsigned int) * (width * height));
+            }
+
+            unsigned int *ndata = (unsigned int *) i->data;
+            unsigned int *ldata = xxev->data;
+            unsigned int *out = xxev->out;
+            unsigned int *lh = out;
+
+            out += 3;
+
             int z = 0; // positionn in the array.
-            int c = 0; // same color count.
-            int l = 0; // last position in the compressed version.
-            int p = pix[0] & 0x00FFFFF; // First pixle with alpha channel cleared.
+            int s = 0; // stream start pixel.
+            int c = 0; // count in stream.
 
-            for(z = 1; z <= w * h; z ++ ) {
-                unsigned int n = pix[z] & 0x00FFFFFF;
+            for(z = 1; z <= width * height; z++){
 
-                /*
-                // Debug updates to the screen.
-                switch(nc) {
-                    case 0: n = n | 0x000000FF; break;
-                    case 1: n = n | 0x0000FF00; break;
-                    case 2: n = n | 0x00FF0000; break;
-                }
-                */
+                if( (*ndata != *ldata) && (z < (width * height))  ) {
 
-                if( n == p && c < 255 && z < w * h ) {
-                    c++;
+                    unsigned int n = *ndata & 0x00FFFFFF;
+
+/*
+                        switch(nc) {
+                            case 0: n = n | 0x000000FF; break;
+                            case 1: n = n | 0x0000FF00; break;
+                            case 2: n = n | 0x00FF0000; break;
+                        }
+*/
+
+                      *out++ = n;
+                      c++;
+
+                } else if(c > 0) {
+
+                    *lh++ = (c + 2) | 2 << 24;
+                    *lh++ = s;
+                    *lh++ = (z - 1) - s;
+
+                    s = z;
+                    lh = out;
+
+                    if( z < (width * height)) {
+                        out += 3;
+                    }
+
+                    c=0;
+
                 } else {
-                    pix[l] = (c << 24) | (p & 0x00FFFFFF);
-                    p = n;
-                    c = 0;
-                    l++;
+                    s = z;
                 }
+
+                ndata++;
+                ldata++;
+
             }
 
-            nc++;
-            if(nc > 2) {
-             nc = 0;
-            }
+            memcpy(xxev->data, i->data, sizeof(unsigned int) * (width * height));
+            XDestroyImage(i);
+
+            if(nc++ > 1) nc = 0;
 
             xxev->e = 1;
-            xxev->x = x;
-            xxev->y = y;
-            xxev->w = w;
-            xxev->h = h;
-            xxev->l = l;
-            xxev->image = i;
+            xxev->x = 0;
+            xxev->y = 0;
+            xxev->w = width;
+            xxev->h = height;
+            xxev->l = (out - xxev->out);
 
             return 1;
         }

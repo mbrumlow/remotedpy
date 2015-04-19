@@ -13,10 +13,12 @@ typedef struct XXEvent {
     int w;
     int h;
     int l;
+    unsigned int *data;
+    unsigned int *out;
     XImage *image;
 } XXEvent;
 
-void DestroyImage(XImage *img);
+void DestroyImage(XXEvent *xe);
 void GetScreenSize(Display *dpy, int *width, int *height);
 static void register_damage(Display *dpy, Window win);
 void RegisterDamanges(Display *dpy);
