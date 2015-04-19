@@ -2,8 +2,16 @@
 
 A small remote desktp viewer using go, xlib, and html5.
 
-http://youtu.be/MnatFWQxT1k
-https://youtu.be/JbypF_ULZTs
+*Inital 
+>http://youtu.be/MnatFWQxT1k 
+   
+*With Compression 
+>https://youtu.be/JbypF_ULZTs 
+
+
+*Precise change tracking (no compression)
+>https://youtu.be/JJ_srz7Ti8Y 
+ 
 
 # Required 
 
