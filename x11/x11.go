@@ -11,8 +11,11 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"reflect"
 	"unsafe"
+
+	"github.com/pierrec/lz4"
 )
 
 type Display struct {
@@ -25,7 +28,7 @@ type Display struct {
 
 func OpenDisplay() (*Display, error) {
 
-	display := C.CString(":0")
+	display := C.CString(":20")
 	dpy := C.XOpenDisplay(display)
 	if dpy == nil {
 		return nil, errors.New("Failed to open display.")
@@ -119,7 +122,15 @@ func (d *Display) getStreamBuffer() {
 		bb := new(bytes.Buffer)
 		binary.Write(bb, binary.LittleEndian, goSlice)
 
-		d.S <- bb
+		bb2 := new(bytes.Buffer)
+		zw := lz4.NewWriter(bb2)
+		binary.Write(zw, binary.LittleEndian, goSlice)
+
+		//		io.Copy(zw, bb)
+
+		fmt.Printf("SIZE: %v\n", len(bb.Bytes())-len(bb2.Bytes()))
+
+		d.S <- bb2
 	}
 }
 

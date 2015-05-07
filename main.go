@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"runtime"
 	"sync"
 	"time"
 
@@ -49,6 +50,8 @@ type ScreenInfo struct {
 }
 
 func main() {
+
+	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	go timeTick()
 

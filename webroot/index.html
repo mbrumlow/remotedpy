@@ -1,11 +1,17 @@
 <!DOCTYPE html>
 <html>
+    <head>
+        <script type="text/javascript" src="lz4.js"></script>
+    </head>
 <body>
 
 <canvas id="screenCanvas" width="0" height="0" style="image-rendering: pixelated;">
     Your browser does not support the HTML5 canvas tag.</canvas>
 
 <script>
+
+var Buffer = require('buffer').Buffer
+var LZ4 = require('lz4')
 
 var imgData;
 var canvas = document.getElementById("screenCanvas");
@@ -19,8 +25,10 @@ var ws = new WebSocket("ws://" +window.location.host + "/dpy");
 ws.binaryType = "arraybuffer";
 
 var msgHandler = function(msgevent) {
-    
-    var buf = new Uint32Array(msgevent.data);
+
+    var input = new Buffer(new Uint8Array(msgevent.data))  
+    var output = LZ4.decode(input)
+    var buf = new Uint32Array(output.toArrayBuffer());
 
     for(var p = 0; p < buf.length; p++) {
         if(buf[p] & 0x80000000) {
