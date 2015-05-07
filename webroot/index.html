@@ -11,7 +11,8 @@ var imgData;
 var canvas = document.getElementById("screenCanvas");
 var ctx = canvas.getContext("2d");
 var screenWidth = 0; 
-var screenHeight = 0; 
+var screenHeight = 0;
+var pixelOffset = 0; 
 
 var ws = new WebSocket("ws://" +window.location.host + "/dpy");
 ws.binaryType = "arraybuffer";
@@ -19,35 +20,58 @@ ws.binaryType = "arraybuffer";
 var msgHandler = function(msgevent) {
     
     var buf = new Uint32Array(msgevent.data);
-    var len = 0;
-    var key = 0; 
-    
-    for(var p = 0; p < buf.length; p = p + len + 1) { 
-        
-        len = (buf[p] & 0x00ffffff);
-        key = (buf[p] & 0xff000000) >> 24; 
-    
-        switch(key) {
-            case 1: screenUpdate(buf.subarray(p+1, p+1+len)); break;
-            case 2: pixelUpdate(buf.subarray(p+1, p+1+len)); break;
+
+    for(var p = 0; p < buf.length; p++) {
+        if(buf[p] & 0x80000000) {
+            var code = (buf[p] & 0x7F000000) >> 24; 
+            switch(code) {
+                case 1:
+                    var w = (buf[p] & 0x00FFF000) >> 12; 
+                    var h = buf[p] & 0x00000FFF; 
+                    screenUpdate(w,h);                
+                    break;
+                case 2: 
+                    pixelOffset = buf[p] & 0x00FFFFFF;
+                    break; 
+                case 127: 
+                    ctx.putImageData(imgData, 0, 0);
+                    break;
+                default: 
+                    console.log("Unknown code: ", code);
+                    break;
+            }
+            continue;
         }
         
+        var px = buf[p];
+        var r = (px & 0xFF000000) >> 24; 
+        for(var c = 0; c < r; c++) {
+            imgData.data[(pixelOffset * 4) + 0] = (px & 0x00ff0000) >> 16;
+            imgData.data[(pixelOffset * 4) + 1] = (px & 0x0000ff00) >> 8;
+            imgData.data[(pixelOffset * 4) + 2] = (px & 0x000000ff);
+            imgData.data[(pixelOffset * 4) + 3] = 255; 
+            pixelOffset++;
+        }
     }
 
 };
 
-function screenUpdate(buf) {
-    var w = buf[0] & 0x0000ffff; 
-    var h = buf[0] >> 16;
-
-    canvas.width = w; 
-    canvas.height = h; 
-    canvas.style.width = w + 'px'; 
-    canvas.style.height = h + 'px';
-    screenWidth = w; 
-    screenHeight = h; 
+function screenUpdate(w, h) {
     
-    imgData = ctx.createImageData(w, h);
+    if(screenWidth != w || screenHeight != h) {
+        
+        console.log("New Screen Size: w: ", w, " h:", h); 
+
+        canvas.width = w; 
+        canvas.height = h; 
+        canvas.style.width = w + 'px'; 
+        canvas.style.height = h + 'px';
+        screenWidth = w; 
+        screenHeight = h; 
+    
+        imgData = ctx.createImageData(w, h);
+    
+    }
 }
 
 function pixelUpdate(pixelArray) {

@@ -72,11 +72,116 @@ void SendMouseMove(Display *dpy, unsigned x, unsigned y) {
 	XFlush(dpy);
 }
 
-int GetDamage(Display *dpy, int damageEvent, XXEvent *xxev)  {
+struct pixel_buf *newpxb(int size) {
+    struct pixel_buf *pxb;
+
+    pxb = (PixelBuf *) malloc(sizeof(PixelBuf));
+    if(!pxb)
+        return NULL;
+
+    pxb->buf = malloc(size);
+    if(!pxb->buf)  {
+        free(pxb);
+        return NULL;
+    }
+
+    pxb->out = (uint32_t *) pxb->buf;
+    pxb->pos = 0;
+    pxb->size = size;
+    pxb->pxsize = size / sizeof(uint32_t);
+    pxb->dup = 0;
+
+    return pxb;
+}
+
+inline rsetpxb(struct pixel_buf *pxb) {
+    pxb->pos = 0;
+    pxb->dup = 0;
+}
+
+inline int growpxb(struct pixel_buf  *pxb) {
+    // TODO: realloc!
+    printf("FUCK REALLOC: %d\n", pxb->pxsize);
+}
+
+inline int writepxb(struct pixel_buf *pxb, uint32_t p){
+    int ret = 0;
+    if(pxb->pos + 1 > pxb->pxsize) {
+        ret = growpxb(pxb);
+    }
+    pxb->out[pxb->pos++] = p;
+    pxb->dup = 0;
+    return ret;
+}
+
+inline int writeduppxb(struct pixel_buf *pxb, uint32_t p){
+    int ret = 0;
+    if(pxb->pos + 1 > pxb->pxsize) {
+        ret = growpxb(pxb);
+    }
+
+    if( pxb->dup > 0 && ((pxb->out[pxb->pos - 1] & 0x00FFFFFF) == p) && (pxb->dup < 127)){
+        pxb->out[pxb->pos - 1] = p | (++pxb->dup << 24);
+    } else {
+        pxb->out[pxb->pos++] = p | (1 << 24);
+        pxb->dup = 1;
+    }
+    return ret;
+}
+
+XStream *NewXStream(Display *dpy) {
+
+    XStream *xs;
+    PixelBuf *pxb;
+    int screen = DefaultScreen(dpy);
+    int width = DisplayWidth(dpy, screen);
+    int height = DisplayHeight(dpy, screen);
+    int pxcount = width * height;
+
+    pxcount = pxcount + (pxcount / 2);
+
+    xs = (XStream *) malloc(sizeof(XStream));
+    if(!xs)
+        return NULL;
+
+    pxb = newpxb(pxcount * sizeof(uint32_t));
+    if(!pxb)
+        return NULL;
+
+    xs->pxb = pxb;
+    xs->last = NULL;
+
+    return xs;
+}
+
+void FreeXStream(XStream *xs) {
+
+    if(!xs)
+        return;
+
+    if(xs->pxb) {
+        free(xs->pxb);
+        xs->pxb = NULL;
+    }
+
+    if(xs->last) {
+        XDestroyImage(xs->last);
+        xs->last = NULL;
+    }
+
+}
+
+int GetDamage(Display *dpy, int damageEvent, XStream *xs)  {
+
+    int i;
+    int screen = DefaultScreen(dpy);
+    int width = DisplayWidth(dpy, screen);
+    int height = DisplayHeight(dpy, screen);
+    int pxcount = width * height;
 
     XEvent ev;
-    Window root = DefaultRootWindow(dpy);
-    int screen = DefaultScreen(dpy);
+
+    rsetpxb(xs->pxb);
 
 	while(1) {
 
@@ -89,110 +194,58 @@ int GetDamage(Display *dpy, int damageEvent, XXEvent *xxev)  {
 			 continue;
 		}
 
-        XAnyEvent *any = (XAnyEvent *) &ev;
-
-        int count = 0;
 		if( ev.type == damageEvent + XDamageNotify ) {
 
-			int rx = 0;
-			int ry = 0;
-			int fr = 0;
-            int x, y, w, h;
-
 			do { // Gobble up the rest of the damage events.
-
                 XDamageNotifyEvent  *dev = (XDamageNotifyEvent *) &ev;
-                XAnyEvent *any = (XAnyEvent *) &ev;
-
-                if( !(any->window == root) ) {
-                    dev->area.x = dev->geometry.x;
-                    dev->area.y = dev->geometry.y;
-                }
-
-				if(fr == 0) {
-					x = dev->area.x;
-					w = dev->area.width;
-					rx = dev->area.x + dev->area.width;
-				} else if(dev->area.x < x) {
-        			x = dev->area.x;
-				}
-
-				if(fr == 0) {
-					y = dev->area.y;
-					h = dev->area.height;
-					ry = dev->area.y + dev->area.height;
-				} else if(dev->area.y < y) {
-        			y = dev->area.y;
-				}
-
-				if( dev->area.y + dev->area.height > ry ) {
-					ry = dev->area.y + dev->area.height;
-					h = ry - y;
-				}
-
-				if( dev->area.x + dev->area.width > rx ) {
-					rx = dev->area.x  + dev->area.width;
-					w = rx - x;
-				}
-
-                // TODO: Figure out what -1 really means.
-				if(x < 0) x = 0;
-				if(y < 0) y = 0;
-
-				fr = 1;
 				XDamageSubtract( dpy, dev->damage, None, None );
             } while (XCheckTypedEvent(dpy, damageEvent + XDamageNotify, &ev));
 
-            h = ry - y;
-            w = rx - x;
+            XImage *img = XGetImage(dpy, DefaultRootWindow(dpy), 0, 0, width, height, AllPlanes, ZPixmap);
 
-            XImage *i = XGetImage(dpy, DefaultRootWindow(dpy), x, y, w, h, AllPlanes, ZPixmap);
+            // screen update - control | code | width | height
+            writepxb(xs->pxb, 0x80000000 | (1<<24) |  (width<<12) | height);
 
-            // Going to make some attemt to reduce the number of pixels we have to send
-            // This will compress any connsecitive pixels into a single pixel and use
-            // the alpha channel to store the number of pixels following that have
-            // the same color.
-            //
-            unsigned int *pix = (unsigned int *) i->data;
-            int z = 0; // positionn in the array.
-            int c = 0; // same color count.
-            int l = 0; // last position in the compressed version.
-            int p = pix[0] & 0x00FFFFF; // First pixle with alpha channel cleared.
+            if(xs->last) {
 
-            for(z = 1; z <= w * h; z ++ ) {
-                unsigned int n = pix[z] & 0x00FFFFFF;
+                unsigned int *ldata = (uint32_t *) xs->last->data;;
+                unsigned int *ndata = (uint32_t *) img->data;
 
-                /*
-                // Debug updates to the screen.
-                switch(nc) {
-                    case 0: n = n | 0x000000FF; break;
-                    case 1: n = n | 0x0000FF00; break;
-                    case 2: n = n | 0x00FF0000; break;
+                int needs_header = 1;
+                for(i = 0; i <= pxcount; i++){
+
+                    if(*ndata != *ldata) {
+
+                        if(needs_header) {
+                            // pixel offset - control | code | offset
+                            writepxb(xs->pxb, 0x80000000 | (2<<24) |  i);
+                            needs_header = 0;
+                        }
+                        writeduppxb(xs->pxb, *ndata & 0x00FFFFFF);
+
+                    } else {
+
+                        needs_header = 1;
+
+                    }
+
+                    ndata++;
+                    ldata++;
                 }
-                */
 
-                if( n == p && c < 255 && z < w * h ) {
-                    c++;
-                } else {
-                    pix[l] = (c << 24) | (p & 0x00FFFFFF);
-                    p = n;
-                    c = 0;
-                    l++;
+                XDestroyImage(xs->last);
+
+            } else {
+
+                unsigned int *data = (unsigned int *) img->data;
+                for(i = 0; i < pxcount; i++){
+                    writeduppxb(xs->pxb, *data++ & 0x00FFFFFF);
                 }
+
             }
 
-            nc++;
-            if(nc > 2) {
-             nc = 0;
-            }
-
-            xxev->e = 1;
-            xxev->x = x;
-            xxev->y = y;
-            xxev->w = w;
-            xxev->h = h;
-            xxev->l = l;
-            xxev->image = i;
+            writepxb(xs->pxb, 0x80000000 | (127<<24));
+            xs->last = img;
 
             return 1;
         }

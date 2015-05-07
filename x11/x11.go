@@ -2,6 +2,7 @@ package x11
 
 /*
 #include "x11.h"
+#cgo CFLAGS: -O3
 #cgo LDFLAGS: -lX11 -lXdamage -lXcomposite -lXtst
 */
 import "C"
@@ -10,12 +11,14 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"time"
+	"reflect"
+	"unsafe"
 )
 
 type Display struct {
 	dpy         *C.struct__XDisplay
 	dpy2        *C.struct__XDisplay
+	xs          *C.XStream
 	damageEvent C.int
 	S           chan *bytes.Buffer
 }
@@ -33,6 +36,11 @@ func OpenDisplay() (*Display, error) {
 		return nil, errors.New("Failed to open display.")
 	}
 
+	xs := C.NewXStream(dpy)
+	if xs == nil {
+		return nil, errors.New("Failed to get xstrea.")
+	}
+
 	var err C.int
 	var damageEvent C.int
 	if C.XDamageQueryExtension(dpy, &damageEvent, &err) == C.int(0) {
@@ -42,7 +50,7 @@ func OpenDisplay() (*Display, error) {
 
 	C.RegisterDamanges(dpy)
 
-	d := &Display{dpy: dpy, dpy2: dpy2, damageEvent: damageEvent}
+	d := &Display{dpy: dpy, dpy2: dpy2, damageEvent: damageEvent, xs: xs}
 	d.S = make(chan *bytes.Buffer, 4)
 
 	return d, nil
@@ -86,37 +94,36 @@ func (d *Display) StopStream() {
 	// TODO: Send event to X and shutdown the getChanges.
 }
 
-func (d *Display) getInitalStreamBuffer() *bytes.Buffer {
-
-	bb := new(bytes.Buffer)
-
-	sw, sh := d.GetScreenSize()
-	binary.Write(bb, binary.LittleEndian, uint32(1|(1<<24)))
-	binary.Write(bb, binary.LittleEndian, uint32(sw|sh<<16))
-
-	return bb
-}
-
 func (d *Display) getStreamBuffer() {
 
-	d.S <- d.getInitalStreamBuffer()
+	/*
+		ticker := time.NewTicker(time.Millisecond * 2)
+		defer ticker.Stop()
 
-	ticker := time.NewTicker(time.Millisecond * 10)
-	defer ticker.Stop()
+		for _ = range ticker.C {
+	*/
 
-	for _ = range ticker.C {
-
-		var xe C.XXEvent
-		ret := C.GetDamage(d.dpy, d.damageEvent, &xe)
+	for {
+		ret := C.GetDamage(d.dpy, d.damageEvent, d.xs)
 		if ret == C.int(0) {
 			continue
 		}
 
-		d.S <- DamageStream(&xe)
+		hdr := reflect.SliceHeader{
+			Data: uintptr(unsafe.Pointer(d.xs.pxb.out)),
+			Len:  int(d.xs.pxb.pos),
+			Cap:  int(d.xs.pxb.pos),
+		}
+		goSlice := *(*[]C.uint)(unsafe.Pointer(&hdr))
 
+		bb := new(bytes.Buffer)
+		binary.Write(bb, binary.LittleEndian, goSlice)
+
+		d.S <- bb
 	}
 }
 
 func (d *Display) Close() {
 	C.XCloseDisplay(d.dpy)
+	C.FreeXStream(d.xs)
 }
