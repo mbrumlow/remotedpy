@@ -15,6 +15,7 @@ typedef struct pixel_buf {
     int      pxsize;
     int      pos;
     int      dup;
+    int      ext;
 } PixelBuf;
 
 typedef struct XStream {

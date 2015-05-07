@@ -13,6 +13,7 @@ var ctx = canvas.getContext("2d");
 var screenWidth = 0; 
 var screenHeight = 0;
 var pixelOffset = 0; 
+var dup = 0; 
 
 var ws = new WebSocket("ws://" +window.location.host + "/dpy");
 ws.binaryType = "arraybuffer";
@@ -32,7 +33,10 @@ var msgHandler = function(msgevent) {
                     break;
                 case 2: 
                     pixelOffset = buf[p] & 0x00FFFFFF;
-                    break; 
+                    break;
+                case 3:
+                    dup = buf[p] & 0x00FFFFFF;
+                    break;
                 case 127: 
                     ctx.putImageData(imgData, 0, 0);
                     break;
@@ -44,14 +48,26 @@ var msgHandler = function(msgevent) {
         }
         
         var px = buf[p];
-        var r = (px & 0xFF000000) >> 24; 
+        var r = ((px & 0xFF000000) >> 24) + dup;
         for(var c = 0; c < r; c++) {
+            
+            if(c > 0 && 0) { 
+
+            imgData.data[(pixelOffset * 4) + 0] = 255; 
+            imgData.data[(pixelOffset * 4) + 1] = 0;
+            imgData.data[(pixelOffset * 4) + 2] = 0;
+            imgData.data[(pixelOffset * 4) + 3] = 255; 
+
+            } else {
             imgData.data[(pixelOffset * 4) + 0] = (px & 0x00ff0000) >> 16;
             imgData.data[(pixelOffset * 4) + 1] = (px & 0x0000ff00) >> 8;
             imgData.data[(pixelOffset * 4) + 2] = (px & 0x000000ff);
             imgData.data[(pixelOffset * 4) + 3] = 255; 
+            }
             pixelOffset++;
         }
+        
+        dup = 0; 
     }
 
 };

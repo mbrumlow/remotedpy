@@ -90,6 +90,7 @@ struct pixel_buf *newpxb(int size) {
     pxb->size = size;
     pxb->pxsize = size / sizeof(uint32_t);
     pxb->dup = 0;
+    pxb->ext = 0;
 
     return pxb;
 }
@@ -120,12 +121,39 @@ inline int writeduppxb(struct pixel_buf *pxb, uint32_t p){
         ret = growpxb(pxb);
     }
 
+    if(pxb->ext == 1) {
+        if( ((pxb->out[pxb->pos - 1] & 0x00FFFFFF) == p) ) {
+            pxb->out[pxb->pos -2] = 0x80000000 | (3<<24) | ++pxb->dup;
+        } else {
+            pxb->out[pxb->pos++] = p | (1 << 24);
+            pxb->dup = 1;
+            pxb->ext = 0;
+        }
+    } else {
+        if( pxb->dup > 0 && ((pxb->out[pxb->pos - 1] & 0x00FFFFFF) == p)){
+            if( pxb->dup < 127 ) {
+                pxb->out[pxb->pos - 1] = p | (++pxb->dup << 24);
+            } else {
+                pxb->out[pxb->pos -1] = 0x80000000 | (3<<24) | ++pxb->dup;
+                pxb->out[pxb->pos++] = p | ( 0 << 24);
+                pxb->ext = 1;
+            }
+
+        } else {
+            pxb->out[pxb->pos++] = p | (1 << 24);
+            pxb->dup = 1;
+            pxb->ext = 0;
+        }
+    }
+
+/*
     if( pxb->dup > 0 && ((pxb->out[pxb->pos - 1] & 0x00FFFFFF) == p) && (pxb->dup < 127)){
         pxb->out[pxb->pos - 1] = p | (++pxb->dup << 24);
     } else {
         pxb->out[pxb->pos++] = p | (1 << 24);
         pxb->dup = 1;
     }
+ */
     return ret;
 }
 
