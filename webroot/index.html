@@ -10,6 +10,8 @@
 
 <script>
 
+var COMPRESS_DEBUG = 0; 
+
 var Buffer = require('buffer').Buffer
 var LZ4 = require('lz4')
 
@@ -26,24 +28,30 @@ ws.binaryType = "arraybuffer";
 
 var msgHandler = function(msgevent) {
 
-    var input = new Buffer(new Uint8Array(msgevent.data))  
-    var output = LZ4.decode(input)
-    var buf = new Uint32Array(output.toArrayBuffer());
+    //var input = new Buffer(new Uint8Array(msgevent.data))  
+    //var output = LZ4.decode(input)
+    //var buf = new Uint32Array(output.toArrayBuffer());
+    
+    var buf = new Uint32Array(msgevent.data);
+       
+    var px = 0x00000000; 
+    var len = buf.length;
+    for(var p = 0; p < len; p++) {
 
-    for(var p = 0; p < buf.length; p++) {
-        if(buf[p] & 0x80000000) {
-            var code = (buf[p] & 0x7F000000) >> 24; 
+        px = buf[p];
+        if(px & 0x80000000) {
+            var code = (px & 0x7F000000) >> 24; 
             switch(code) {
                 case 1:
-                    var w = (buf[p] & 0x00FFF000) >> 12; 
-                    var h = buf[p] & 0x00000FFF; 
+                    var w = (px & 0x00FFF000) >> 12; 
+                    var h = px & 0x00000FFF; 
                     screenUpdate(w,h);                
                     break;
                 case 2: 
-                    pixelOffset = buf[p] & 0x00FFFFFF;
+                    pixelOffset = px & 0x00FFFFFF;
                     break;
                 case 3:
-                    dup = buf[p] & 0x00FFFFFF;
+                    dup = px & 0x00FFFFFF;
                     break;
                 case 127: 
                     ctx.putImageData(imgData, 0, 0);
@@ -54,30 +62,19 @@ var msgHandler = function(msgevent) {
             }
             continue;
         }
+
         
-        var px = buf[p];
         var r = ((px & 0xFF000000) >> 24) + dup;
         for(var c = 0; c < r; c++) {
-            
-            if(c > 0 && 0) { 
-
-            imgData.data[(pixelOffset * 4) + 0] = 255; 
-            imgData.data[(pixelOffset * 4) + 1] = 0;
-            imgData.data[(pixelOffset * 4) + 2] = 0;
-            imgData.data[(pixelOffset * 4) + 3] = 255; 
-
-            } else {
             imgData.data[(pixelOffset * 4) + 0] = (px & 0x00ff0000) >> 16;
             imgData.data[(pixelOffset * 4) + 1] = (px & 0x0000ff00) >> 8;
             imgData.data[(pixelOffset * 4) + 2] = (px & 0x000000ff);
             imgData.data[(pixelOffset * 4) + 3] = 255; 
-            }
             pixelOffset++;
         }
         
         dup = 0; 
     }
-
 };
 
 function screenUpdate(w, h) {
@@ -97,38 +94,6 @@ function screenUpdate(w, h) {
     
     }
 }
-
-function pixelUpdate(pixelArray) {
-
-    var sx = pixelArray[0] & 0x0000ffff;
-    var sy = pixelArray[0] >> 16;
-    var w = pixelArray[1] & 0x0000ffff;
-    var h = pixelArray[1] >> 16; 
-
-    var r = 0;
-    var o = 2; 
-    var px;
-
-    for ( var y = sy; y < (sy + h); y++ ) {
-        for( var x = sx; x < (sx + w); x++ ) {
-           
-            if( r == 0 ) { 
-                px = pixelArray[o++];
-                r = ((px & 0xff000000) >> 24) & 0x000000ff;
-            } else {
-                r--;
-            }
-
-            imgData.data[((screenWidth * y) + x) * 4] = (px & 0x00ff0000) >> 16;
-            imgData.data[((screenWidth * y) + x) * 4 + 1] = (px & 0x0000ff00) >> 8;
-            imgData.data[((screenWidth * y) + x) * 4 + 2] = (px & 0x000000ff)
-            imgData.data[((screenWidth * y) + x) * 4 + 3] = 255; 
-        }
-    }
-   
-    ctx.putImageData(imgData, 0, 0);
-}
-
 
 ws.onmessage = msgHandler;
 window.addEventListener( "keydown", doKeyDown, true);

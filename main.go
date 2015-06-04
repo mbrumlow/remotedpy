@@ -134,10 +134,20 @@ func DpyServer(ws *websocket.Conn) {
 
 	for s := range dpy.S {
 
+		tic := time.Now()
 		err = websocket.Message.Send(ws, s.Bytes())
 		if err != nil {
 			fmt.Println("ENDING: " + err.Error())
 			return
+		}
+		toc := time.Now()
+
+		t := toc.Sub(tic)
+
+		if t > 2000000*time.Nanosecond {
+			fmt.Printf("TIME BAD: %v  -- %v kib\n", t, len(s.Bytes())/1024)
+		} else if (len(s.Bytes()) / 1024) > 300 {
+			fmt.Printf("TIME GOOD: %v  -- %v kib\n", t, len(s.Bytes())/1024)
 		}
 
 		mu.Lock()

@@ -154,6 +154,8 @@ inline int writeduppxb(struct pixel_buf *pxb, uint32_t p){
         pxb->dup = 1;
     }
  */
+
+//    pxb->out[pxb->pos++] = p | (1 << 24);
     return ret;
 }
 

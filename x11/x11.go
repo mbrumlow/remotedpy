@@ -11,11 +11,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"reflect"
 	"unsafe"
-
-	"github.com/pierrec/lz4"
 )
 
 type Display struct {
@@ -28,7 +25,7 @@ type Display struct {
 
 func OpenDisplay() (*Display, error) {
 
-	display := C.CString(":20")
+	display := C.CString(":0")
 	dpy := C.XOpenDisplay(display)
 	if dpy == nil {
 		return nil, errors.New("Failed to open display.")
@@ -99,13 +96,6 @@ func (d *Display) StopStream() {
 
 func (d *Display) getStreamBuffer() {
 
-	/*
-		ticker := time.NewTicker(time.Millisecond * 2)
-		defer ticker.Stop()
-
-		for _ = range ticker.C {
-	*/
-
 	for {
 		ret := C.GetDamage(d.dpy, d.damageEvent, d.xs)
 		if ret == C.int(0) {
@@ -119,18 +109,39 @@ func (d *Display) getStreamBuffer() {
 		}
 		goSlice := *(*[]C.uint)(unsafe.Pointer(&hdr))
 
+		/*
+			s := 0
+			for s < len(goSlice) {
+
+				e := s + 128
+				if e > len(goSlice) {
+					e = len(goSlice)
+				}
+
+					bb := new(bytes.Buffer)
+					zw := lz4.NewWriter(bb)
+					//zw.Header = lz4.Header{BlockDependency: true, BlockChecksum: false, NoChecksum: true, HighCompression: true}
+					binary.Write(zw, binary.LittleEndian, goSlice[s:e])
+
+
+				d.S <- bb
+				s = e
+			}
+		*/
+
+		/*
+			bb := new(bytes.Buffer)
+			zw := lz4.NewWriter(bb)
+			//zw.Header = lz4.Header{BlockDependency: true, BlockChecksum: false, NoChecksum: true, HighCompression: true}
+			binary.Write(zw, binary.LittleEndian, goSlice)
+
+			d.S <- bb
+		*/
 		bb := new(bytes.Buffer)
 		binary.Write(bb, binary.LittleEndian, goSlice)
 
-		bb2 := new(bytes.Buffer)
-		zw := lz4.NewWriter(bb2)
-		binary.Write(zw, binary.LittleEndian, goSlice)
+		d.S <- bb
 
-		//		io.Copy(zw, bb)
-
-		fmt.Printf("SIZE: %v\n", len(bb.Bytes())-len(bb2.Bytes()))
-
-		d.S <- bb2
 	}
 }
 
