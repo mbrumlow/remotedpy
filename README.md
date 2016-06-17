@@ -2,7 +2,7 @@
 
 A small remote desktp viewer using go, xlib, and html5.
 
-*Inital 
+*Initial 
 >http://youtu.be/MnatFWQxT1k 
    
 *With Compression 
