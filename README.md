@@ -1,15 +1,14 @@
 # RemoteDPY
 
-A small remote desktp viewer using go, xlib, and html5.
+A small remote desktop viewer using go, xlib, and html5.
 
-*Initial 
+Initial 
 >http://youtu.be/MnatFWQxT1k 
    
-*With Compression 
+With Compression 
 >https://youtu.be/JbypF_ULZTs 
 
-
-*Precise change tracking (no compression)
+Precise change tracking (no compression)
 >https://youtu.be/JJ_srz7Ti8Y 
  
 
@@ -24,5 +23,3 @@ A small remote desktp viewer using go, xlib, and html5.
 # Note 
 
 This does not work well on ubuntu desktop. It seems to signal xdamage the entire screen has updated... For anything. 
-
-
